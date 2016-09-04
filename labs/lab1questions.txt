@@ -2,22 +2,22 @@ After completing the lab, answer these questions.
 
 
 1. Give a specific example from the code where an interface is implemented by more than one class.
-
+	Both IntField and StringField implement interface Field.
 
 
 2. Find two examples of enum types.  
-
+	Type(INT_TYPE,STRING_TYPE) and Op(EQUALS, GREATER_THAN, LESS_THAN, LESS_THAN_OR_EQ, GREATER_THAN_OR_EQ, LIKE, NOT_EQUALS)
 
 
 3. When writing the `toString` method of `TupleDesc` your code should be taking advantage of polymorphism.  Briefly (1-2 sentences) explain how it does.
-
+	When we convert different fields to string and append it to the string to return, there are two types, int and string. Through polymorphism, we simply called toString to complete this conversion instead of using if statements or other methods.
 
 
 4. There is a method that can be called to create a new `IntField` object from bytes (well, more precisely, from a Java class that represents an input stream of bytes).  What is it? 
-
+	readObject()
 
 
 5. There is a method that can be called to take an existing `StringField` object and write it out as bytes.  What is it?
-
+	serialize(DataOutPutStream dos)
 
 

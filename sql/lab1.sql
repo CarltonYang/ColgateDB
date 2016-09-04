@@ -22,19 +22,35 @@ drop view if exists HutFans;
 */  
 
 /* YOUR CODE HERE */
+CREATE TABLE Person(
+  name TEXT PRIMARY KEY,
+  age INT,
+  gender TEXT
+);
+
+CREATE TABLE Frequents(
+  name TEXT,
+  pizzeria TEXT,
+  FOREIGN KEY(name) REFERENCES Person(name)
+);
+
 
 /* Create a view called HutFans that contains the names of
    people who frequent Pizza Hut.
 */
 
 /* YOUR CODE HERE */
+CREATE VIEW HutFans AS
+  SELECT name
+  FROM Frequents F
+  WHERE F.pizzeria='Pizza Hut';
 
 /* Populate the tables with data */
 insert into Person values('Amy', 16, 'female');
 insert into Person values('Ben', 21, 'male');
 insert into Person values('Cal', 33, 'male');
 insert into Person values('Dan', 13, 'male');
-insert into Person values('Amy', 45, 'male');
+insert into Person values('Eli', 45, 'male');
 insert into Person values('Fay', 21, 'female');
 insert into Person values('Gus', 24, 'male');
 insert into Person values('Hil', 30, 'female');

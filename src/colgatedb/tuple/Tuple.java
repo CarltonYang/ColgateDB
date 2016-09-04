@@ -24,6 +24,9 @@ import java.util.NoSuchElementException;
  */
 public class Tuple implements Serializable {
 
+    private Field[] fields;
+    private TupleDesc schema;
+    private RecordId rid;
     private static final long serialVersionUID = 1L;
 
     /**
@@ -32,14 +35,15 @@ public class Tuple implements Serializable {
      * @param td the schema of this tuple. It must be a valid TupleDesc instance with at least one field.
      */
     public Tuple(TupleDesc td) {
-        throw new UnsupportedOperationException("implement me!");
+        schema=td;
+        fields=new Field[td.numFields()];
     }
 
     /**
      * @return The TupleDesc representing the schema of this tuple.
      */
     public TupleDesc getTupleDesc() {
-        throw new UnsupportedOperationException("implement me!");
+        return schema;
     }
 
     /**
@@ -51,7 +55,13 @@ public class Tuple implements Serializable {
      * @throws NoSuchElementException if i is not a valid field reference.
      */
     public void setField(int i, Field f) {
-        throw new UnsupportedOperationException("implement me!");
+        if (i<0 || i>fields.length-1){
+            throw new NoSuchElementException("Invalid index: out of bound!");
+        }
+        if (!(f.getType().equals(schema.getFieldType(i)))){
+            throw new RuntimeException("New field does not match the type of filed i!");
+        }
+        fields[i]=f;
     }
 
     /**
@@ -60,7 +70,10 @@ public class Tuple implements Serializable {
      * @throws NoSuchElementException if i is not a valid field reference.
      */
     public Field getField(int i) {
-        throw new UnsupportedOperationException("implement me!");
+        if (i<0 || i>fields.length-1){
+            throw new NoSuchElementException("Invalid index: out of bound!");
+        }
+        return fields[i];
     }
 
     /**
@@ -72,7 +85,13 @@ public class Tuple implements Serializable {
      * where \t is a tab and \n is a newline
      */
     public String toString() {
-        throw new UnsupportedOperationException("implement me!");
+        String content= "";
+        for (int i=0;i <fields.length;i++){
+            content+=fields[i].toString()+"\t";
+            //  /t added to pass tests
+        }
+        content=content.substring(0,content.length()-1);//see above
+        return content;
     }
 
 
@@ -81,7 +100,7 @@ public class Tuple implements Serializable {
      */
     public Iterator<Field> fields() {
         // hint: use java.util.Arrays.asList to convert array into a list, then return list iterator.
-        throw new UnsupportedOperationException("implement me!");
+        return Arrays.asList(fields).iterator();
     }
 
     /**
@@ -89,7 +108,7 @@ public class Tuple implements Serializable {
      */
     public RecordId getRecordId() {
          // you do not need to implement for lab 1
-        throw new UnsupportedOperationException("implement me!");
+        return rid;
     }
 
     /**
@@ -99,6 +118,6 @@ public class Tuple implements Serializable {
      */
     public void setRecordId(RecordId rid) {
          // you do not need to implement for lab 1
-        throw new UnsupportedOperationException("implement me!");
+        this.rid= rid;
     }
 }
