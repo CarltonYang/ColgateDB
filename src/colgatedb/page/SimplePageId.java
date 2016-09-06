@@ -20,6 +20,8 @@ package colgatedb.page;
  */
 public class SimplePageId implements PageId {
 
+    private int tableId;
+    private int pgNo;
 
     /**
      * Constructor. Create a page id structure for a specific page of a
@@ -29,14 +31,15 @@ public class SimplePageId implements PageId {
      * @param pgNo    The page number in that table.
      */
     public SimplePageId(int tableId, int pgNo) {
-        throw new UnsupportedOperationException("implement me!");
+        this.tableId=tableId;
+        this.pgNo=pgNo;
     }
 
     /**
      * @return the table associated with this PageId
      */
     public int getTableId() {
-        throw new UnsupportedOperationException("implement me!");
+        return this.tableId;
     }
 
     /**
@@ -44,7 +47,7 @@ public class SimplePageId implements PageId {
      * this PageId
      */
     public int pageNumber() {
-        throw new UnsupportedOperationException("implement me!");
+        return pgNo;
     }
 
     /**
@@ -56,7 +59,7 @@ public class SimplePageId implements PageId {
      * in a principled way!
      */
     public int hashCode() {
-        throw new UnsupportedOperationException("implement me!");
+        return pgNo*tableId+tableId+pgNo;
     }
 
     /**
@@ -67,14 +70,20 @@ public class SimplePageId implements PageId {
      * ids are the same)
      */
     public boolean equals(Object o) {
-        throw new UnsupportedOperationException("implement me!");
+        if (o instanceof SimplePageId){
+            if (((SimplePageId) o).getTableId()==this.tableId && ((SimplePageId) o).pageNumber()==this.pgNo){
+                return true;
+            }
+            return false;
+        }
+        return false;
     }
 
     /**
      * @return Returns a string that is "x-y" where x is the tableId and y is the page number.
      */
     public String toString() {
-        throw new UnsupportedOperationException("implement me!");
+        return tableId+"-"+pgNo;
     }
 
     /**

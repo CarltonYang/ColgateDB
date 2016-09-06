@@ -38,6 +38,8 @@ public class SlottedPage implements Page {
     private final PageId pid;
     private final TupleDesc td;
     private final int pageSize;
+    private final Tuple[] tuples;
+
     // you will want to include additional instance variables here.
 
     // ------------------------------------------------
@@ -57,7 +59,8 @@ public class SlottedPage implements Page {
         this.pid = pid;
         this.td = td;
         this.pageSize = pageSize;
-         // write some code here to finish initializing this object
+        tuples= new Tuple[getNumSlots()];
+
         setBeforeImage();  // used for logging, leave this line at end of constructor
     }
 
@@ -75,7 +78,7 @@ public class SlottedPage implements Page {
 
     @Override
     public PageId getId() {
-        throw new UnsupportedOperationException("implement me!");
+        return pid;
     }
 
     /**
@@ -83,7 +86,7 @@ public class SlottedPage implements Page {
      * @return true if this slot is used (i.e., is occupied by a Tuple).
      */
     public boolean isSlotUsed(int slotno) {
-        throw new UnsupportedOperationException("implement me!");
+        return !(tuples[slotno]==null);
     }
 
     /**
@@ -107,7 +110,11 @@ public class SlottedPage implements Page {
      * @return the number of slots on this page that are empty.
      */
     public int getNumEmptySlots() {
-        throw new UnsupportedOperationException("implement me!");
+        int numEmpty=0;
+        for (int i=0; i< getNumSlots(); i++){
+            if (tuples[i]==null){numEmpty++;}
+        }
+        return numEmpty;
     }
 
     /**
@@ -116,7 +123,7 @@ public class SlottedPage implements Page {
      * @throws PageException if slot is empty
      */
     public Tuple getTuple(int slotno) {
-        throw new UnsupportedOperationException("implement me!");
+        return tuples[slotno];
     }
 
     /**
@@ -131,7 +138,14 @@ public class SlottedPage implements Page {
      *                          passed tuple is a mismatch with TupleDesc of this page.
      */
     public void insertTuple(int slotno, Tuple t) {
-        throw new UnsupportedOperationException("implement me!");
+        if (isSlotEmpty(slotno)){
+            if (t.getTupleDesc().equals(this.td)){
+                tuples[slotno]=t;
+                t.setRecordId(new RecordId(pid,slotno));
+            }
+            throw new PageException("TupleDesc of passed tuple is a mismatch with TupleDesc of this page!");
+        }
+        throw new PageException("Slot is full!");
     }
 
     /**
@@ -145,7 +159,21 @@ public class SlottedPage implements Page {
      *                          passed tuple is a mismatch with TupleDesc of this page.
      */
     public void insertTuple(Tuple t) throws PageException {
-        throw new UnsupportedOperationException("implement me!");
+        int numEmpty=getNumEmptySlots();
+        if (numEmpty>0){
+            if (t.getTupleDesc().equals(this.td)){
+                while (true){
+                    for (int i=0; i< getNumSlots(); i++){
+                        if (tuples[i]==null){
+                            insertTuple(i,t);
+                            return;
+                        }
+                    }
+                }
+            }
+            throw new PageException("TupleDesc of passed tuple is a mismatch with TupleDesc of this page!");
+        }
+        throw new PageException("Page is full!");
     }
 
     /**
@@ -168,7 +196,7 @@ public class SlottedPage implements Page {
      * (Note: calling remove on this iterator throws an UnsupportedOperationException)
      */
     public Iterator<Tuple> iterator() {
-        throw new UnsupportedOperationException("implement me!");
+        return Arrays.asList(tuples).iterator();
     }
 
     @Override

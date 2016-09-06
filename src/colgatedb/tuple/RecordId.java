@@ -1,6 +1,7 @@
 package colgatedb.tuple;
 
 import colgatedb.page.PageId;
+import sun.java2d.pipe.SpanShapeRenderer;
 
 import java.io.Serializable;
 
@@ -22,6 +23,8 @@ import java.io.Serializable;
  */
 public class RecordId implements Serializable {
 
+    private PageId pid;
+    private int tupleNo;
     private static final long serialVersionUID = 1L;
 
     /**
@@ -35,7 +38,8 @@ public class RecordId implements Serializable {
      */
     public RecordId(PageId pid, int tupleno) {
          // you do not need to implement for lab 1
-        throw new UnsupportedOperationException("implement me!");
+        this.pid=pid;
+        this.tupleNo=tupleno;
     }
 
     /**
@@ -43,7 +47,7 @@ public class RecordId implements Serializable {
      */
     public int tupleno() {
          // you do not need to implement for lab 1
-        throw new UnsupportedOperationException("implement me!");
+        return this.tupleNo;
     }
 
     /**
@@ -51,7 +55,7 @@ public class RecordId implements Serializable {
      */
     public PageId getPageId() {
          // you do not need to implement for lab 1
-        throw new UnsupportedOperationException("implement me!");
+        return this.pid;
     }
 
     /**
@@ -63,7 +67,13 @@ public class RecordId implements Serializable {
     @Override
     public boolean equals(Object o) {
          // you do not need to implement for lab 1
-        throw new UnsupportedOperationException("implement me!");
+        if (o instanceof RecordId){
+            if (((RecordId) o).getPageId().equals(this.pid)&& ((RecordId) o).tupleno()==this.tupleNo){
+                return true;
+            }
+            return false;
+        }
+        return false;
     }
 
     /**
@@ -78,7 +88,7 @@ public class RecordId implements Serializable {
     @Override
     public int hashCode() {
          // you do not need to implement for lab 1
-        throw new UnsupportedOperationException("implement me!");
+        return pid.hashCode()*tupleNo+pid.hashCode()+tupleNo;
 
     }
 
