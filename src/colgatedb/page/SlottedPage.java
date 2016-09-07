@@ -139,9 +139,10 @@ public class SlottedPage implements Page {
      */
     public void insertTuple(int slotno, Tuple t) {
         if (isSlotEmpty(slotno)){
-            if (t.getTupleDesc().equals(this.td)){
+            if (td.equals(t.getTupleDesc())){
                 tuples[slotno]=t;
                 t.setRecordId(new RecordId(pid,slotno));
+                return;
             }
             throw new PageException("TupleDesc of passed tuple is a mismatch with TupleDesc of this page!");
         }
@@ -161,7 +162,7 @@ public class SlottedPage implements Page {
     public void insertTuple(Tuple t) throws PageException {
         int numEmpty=getNumEmptySlots();
         if (numEmpty>0){
-            if (t.getTupleDesc().equals(this.td)){
+            if (td.equals(t.getTupleDesc())){
                 while (true){
                     for (int i=0; i< getNumSlots(); i++){
                         if (tuples[i]==null){
@@ -185,7 +186,23 @@ public class SlottedPage implements Page {
      *                          slot is already empty.
      */
     public void deleteTuple(Tuple t) throws PageException {
-        throw new UnsupportedOperationException("implement me!");
+        if (t.getRecordId()==null){
+            throw new PageException("This tuple does not have a record ID!");
+        }
+        else if (t.getRecordId().getPageId()!=this.pid){
+            throw new PageException("This tuple is not on this page!");
+        }
+        else if (getNumEmptySlots()==getNumSlots()){
+            throw new PageException("Tuple slots are already empty!");
+        }
+        else{
+            for (int i=0; i< getNumSlots(); i++){
+                if (tuples[i].equals(t)){
+                    tuples[i]=null;
+                    break;
+                }
+            }
+        }
     }
 
 
@@ -196,7 +213,14 @@ public class SlottedPage implements Page {
      * (Note: calling remove on this iterator throws an UnsupportedOperationException)
      */
     public Iterator<Tuple> iterator() {
-        return Arrays.asList(tuples).iterator();
+        Tuple[] tupleIterator=new Tuple[getNumSlots()-getNumEmptySlots()];
+        for (int i=0,j=0; i< getNumSlots(); i++){
+            if (tuples[i]!=null){
+                tupleIterator[j]= tuples[i];
+                j++;
+            }
+        }
+        return Arrays.asList(tupleIterator).iterator();
     }
 
     @Override
