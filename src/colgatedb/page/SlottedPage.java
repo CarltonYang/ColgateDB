@@ -49,6 +49,39 @@ public class SlottedPage implements Page {
     byte[] oldData;
     // ------------------------------------------------
 
+    class MyIterator implements Iterator<Tuple> {
+
+        private int currIdx;
+
+        public MyIterator() {
+            currIdx = 0;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return currIdx < (getNumSlots());
+        }
+
+        @Override
+        public Tuple next() {
+            if (!hasNext()) {   // always check!
+                throw new NoSuchElementException();
+            }
+            while(isSlotEmpty(currIdx)){
+                currIdx++;
+            }
+            Tuple nextValue= tuples[currIdx];
+            currIdx++;
+            return nextValue;
+        }
+
+        @Override
+        public void remove() {
+            // it's not uncommon for a class to implement the Iterator interface
+            // yet not support remove.
+            throw new UnsupportedOperationException("my data can't be modified!");
+        }
+    }
     /**
      * Constructs empty SlottedPage
      * @param pid  page id to assign to this page
@@ -213,14 +246,7 @@ public class SlottedPage implements Page {
      * (Note: calling remove on this iterator throws an UnsupportedOperationException)
      */
     public Iterator<Tuple> iterator() {
-        Tuple[] tupleIterator=new Tuple[getNumSlots()-getNumEmptySlots()];
-        for (int i=0,j=0; i< getNumSlots(); i++){
-            if (tuples[i]!=null){
-                tupleIterator[j]= tuples[i];
-                j++;
-            }
-        }
-        return Arrays.asList(tupleIterator).iterator();
+        return new MyIterator();
     }
 
     @Override
