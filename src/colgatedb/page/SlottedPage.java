@@ -107,6 +107,7 @@ public class SlottedPage implements Page {
     public SlottedPage(PageId pid, TupleDesc td, int pageSize, byte[] data) {
         this(pid, td, pageSize);
         setPageData(data);
+        setBeforeImage();//used for logging, leave this line at end of constuctor
     }
 
     @Override
@@ -136,7 +137,7 @@ public class SlottedPage implements Page {
      * the page size and the schema (TupleDesc).
      */
     public int getNumSlots() {
-         return 5;  // this will need to be revised later
+         return (int)Math.floor((pageSize*8)/(td.getSize()*8+1));  // this will need to be revised later
     }
 
     /**

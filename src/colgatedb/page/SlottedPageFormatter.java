@@ -65,7 +65,7 @@ public class SlottedPageFormatter {
      * @return number of tuples that this page can hold
      */
     public static int computePageCapacity(int pageSize, TupleDesc td) {
-        throw new UnsupportedOperationException("implement me!");
+        return (int)Math.floor((pageSize*8)/(td.getSize()*8+1));
     }
 
     /**
@@ -76,7 +76,7 @@ public class SlottedPageFormatter {
      * @return the size of the header in bytes.
      */
     public static int getHeaderSize(int numSlots) {
-        throw new UnsupportedOperationException("implement me!");
+        return (int)Math.ceil(numSlots/8.0);
     }
 
     /**
@@ -94,7 +94,22 @@ public class SlottedPageFormatter {
             // see the Javadocs for DataOutputStream for handy methods
             // to write out the data of a Field use the Field.serialize method
             // also, you may find it the markSlot method very useful here
-            
+            byte[] header= new byte[getHeaderSize(computePageCapacity(pageSize,td))];
+            for (int i=0; i<page.getNumSlots();i++){
+                markSlot(i,header,page.isSlotUsed(i));
+            }
+            dos.write(header,0,header.length);
+            byte[] empty=new byte[td.getSize()];
+
+            for (int j=0; j<page.getNumSlots();j++){
+                if (page.isSlotUsed(j)){
+                    dos.write(page.getTuple(j).serialize())
+                }
+                else{
+                    dos.write(empty,)
+                }
+            }
+
             return baos.toByteArray();
         } catch (Exception e) {
             throw new PageException(e);
@@ -130,7 +145,9 @@ public class SlottedPageFormatter {
      * @return
      */
     private static boolean isSlotUsed(int i, byte[] header) {
-        throw new UnsupportedOperationException("implement me!");
+        int remainder=i % 8;
+        byte j=1;
+        return ((header[i/8] & (j<<i))==  (j<<i));
     }
 
     /**
@@ -140,6 +157,13 @@ public class SlottedPageFormatter {
      * @param isUsed if true, slot should be set to 1; if false, set to 0
      */
     private static void markSlot(int i, byte[] header, boolean isUsed) {
-        throw new UnsupportedOperationException("implement me!");
+        int remainder=i % 8;
+        byte j=1;
+        if (isUsed){
+            header[i/8]= (byte)(header[i/8]|(j<<i));
+        }
+        else{
+            header[i/8]= (byte)(header[i/8]&(~(j<<i)));
+        }
     }
 }
