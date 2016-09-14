@@ -5,6 +5,7 @@ import colgatedb.tuple.Tuple;
 import colgatedb.tuple.TupleDesc;
 
 import java.io.*;
+import java.util.Iterator;
 
 /**
  * ColgateDB
@@ -95,19 +96,24 @@ public class SlottedPageFormatter {
             // to write out the data of a Field use the Field.serialize method
             // also, you may find it the markSlot method very useful here
             byte[] header= new byte[getHeaderSize(computePageCapacity(pageSize,td))];
-            for (int i=0; i<page.getNumSlots();i++){
-                markSlot(i,header,page.isSlotUsed(i));
+            int numPage=page.getNumSlots();
+            for (int i=0; i<numPage;i++){markSlot(i,header,page.isSlotUsed(i));
             }
             dos.write(header,0,header.length);
             byte[] empty=new byte[td.getSize()];
-
+            int offset=header.length;
             for (int j=0; j<page.getNumSlots();j++){
                 if (page.isSlotUsed(j)){
-                    dos.write(page.getTuple(j).serialize())
+                    Iterator<Field> fields= page.getTuple(j).fields();
+                    while(fields.hasNext()){
+                        Field temp=fields.next();
+                        temp.serialize(dos);
+                    }
                 }
                 else{
-                    dos.write(empty,)
+                    dos.write(empty,offset,td.getSize());
                 }
+                offset+=td.getSize();
             }
 
             return baos.toByteArray();

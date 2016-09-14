@@ -252,7 +252,7 @@ public class SlottedPage implements Page {
 
     @Override
     public byte[] getPageData() {
-         return new byte[1];  // this will need to be fixed later
+        return SlottedPageFormatter.pageToBytes(this,this.td, this.pageSize);  // this will need to be fixed later
     }
 
     /**
