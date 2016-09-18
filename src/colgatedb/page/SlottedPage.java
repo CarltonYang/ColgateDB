@@ -260,7 +260,7 @@ public class SlottedPage implements Page {
      * @param data
      */
     private void setPageData(byte[] data) {
-         // this will be filled in later...
+         SlottedPageFormatter.bytesToPage(data, this, this.td);
     }
 
     @Override

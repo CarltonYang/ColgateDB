@@ -1,6 +1,7 @@
 package colgatedb.page;
 
 import colgatedb.tuple.Field;
+import colgatedb.tuple.RecordId;
 import colgatedb.tuple.Tuple;
 import colgatedb.tuple.TupleDesc;
 
@@ -95,27 +96,42 @@ public class SlottedPageFormatter {
             // see the Javadocs for DataOutputStream for handy methods
             // to write out the data of a Field use the Field.serialize method
             // also, you may find it the markSlot method very useful here
-            byte[] header= new byte[getHeaderSize(computePageCapacity(pageSize,td))];
+
+            // mark header and write to dos
+            int headerSize= getHeaderSize(computePageCapacity(pageSize,td));
+            byte[] header= new byte[headerSize];
             int numPage=page.getNumSlots();
-            for (int i=0; i<numPage;i++){markSlot(i,header,page.isSlotUsed(i));
+            for (int i=0; i<numPage;i++){
+                markSlot(i,header,page.isSlotUsed(i));
             }
             dos.write(header,0,header.length);
-            byte[] empty=new byte[td.getSize()];
-            int offset=header.length;
-            for (int j=0; j<page.getNumSlots();j++){
+
+            // write tuple to dos
+            int tupleSize=td.getSize();
+            byte[] empty=new byte[tupleSize];
+            int pageSlots=page.getNumSlots();
+
+            for (int j=0; j<pageSlots;j++){
                 if (page.isSlotUsed(j)){
                     Iterator<Field> fields= page.getTuple(j).fields();
                     while(fields.hasNext()){
-                        Field temp=fields.next();
-                        temp.serialize(dos);
+                        fields.next().serialize(dos);
+                        //Thread.sleep(0);
                     }
                 }
                 else{
-                    dos.write(empty,offset,td.getSize());
+                    dos.write(empty,0,td.getSize());
                 }
-                offset+=td.getSize();
             }
 
+            // zero out any excess spaces
+            if ((pageSlots*tupleSize+headerSize)< pageSize ){
+                int lenZero=pageSize-pageSlots*tupleSize-headerSize;
+                byte[] zeroOut= new byte[lenZero];
+                dos.write(zeroOut,0,lenZero);
+            }
+
+            // return array
             return baos.toByteArray();
         } catch (Exception e) {
             throw new PageException(e);
@@ -137,6 +153,28 @@ public class SlottedPageFormatter {
             // see the Javadocs for DataInputStream for handy methods
             // to read the data associated with a Field in a tuple, use the Type.parse method
             // also, you may find it the isSlotUsed method very useful here
+
+            // read header
+            int pageSlots= emptyPage.getNumSlots();
+            int headerSize= getHeaderSize(pageSlots);
+            byte[] header= new byte[headerSize];
+            dis.readFully(header,0,headerSize);
+
+            // read tuple and put into page
+            Tuple emptyTuple= new Tuple(td);
+            int numFields= td.numFields();
+
+            for (int i=0; i<pageSlots; i++ ){
+                Tuple tempTuple = new Tuple(td);
+                RecordId rid = new RecordId(emptyPage.getId(), i);
+                tempTuple.setRecordId(rid);
+                for (int j = 0; j < numFields; j++) {
+                    tempTuple.setField(j, td.getFieldType(j).parse(dis));
+                }
+                if (isSlotUsed(i,header)){
+                    emptyPage.insertTuple(i,tempTuple);
+                }
+            }
             dis.close();
         } catch (IOException e) {
             throw new PageException(e);
@@ -153,7 +191,7 @@ public class SlottedPageFormatter {
     private static boolean isSlotUsed(int i, byte[] header) {
         int remainder=i % 8;
         byte j=1;
-        return ((header[i/8] & (j<<i))==  (j<<i));
+        return ((header[i/8] & (j<<remainder))==  (j<<remainder));
     }
 
     /**
@@ -166,10 +204,10 @@ public class SlottedPageFormatter {
         int remainder=i % 8;
         byte j=1;
         if (isUsed){
-            header[i/8]= (byte)(header[i/8]|(j<<i));
+            header[i/8]= (byte)(header[i/8]|(j<<remainder));
         }
         else{
-            header[i/8]= (byte)(header[i/8]&(~(j<<i)));
+            header[i/8]= (byte)(header[i/8]&(~(j<<remainder)));
         }
     }
 }

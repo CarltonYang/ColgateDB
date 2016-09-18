@@ -212,6 +212,8 @@ public class SlottedPageFormatterTest {
     public void writeToBytes2() throws IOException {
         TestExample test2 = makeTest2();
         byte[] pageBytes = test2.testPage.getPageData();
+        byte o1= pageBytes[1];
+        byte o2= test2.testPageBytes[1];
         assertArrayEquals(test2.testPageBytes, pageBytes);
     }
 
