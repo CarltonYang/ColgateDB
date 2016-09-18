@@ -116,7 +116,6 @@ public class SlottedPageFormatter {
                     Iterator<Field> fields= page.getTuple(j).fields();
                     while(fields.hasNext()){
                         fields.next().serialize(dos);
-                        //Thread.sleep(0);
                     }
                 }
                 else{
@@ -161,7 +160,6 @@ public class SlottedPageFormatter {
             dis.readFully(header,0,headerSize);
 
             // read tuple and put into page
-            Tuple emptyTuple= new Tuple(td);
             int numFields= td.numFields();
 
             for (int i=0; i<pageSlots; i++ ){
