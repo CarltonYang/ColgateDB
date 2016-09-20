@@ -4,7 +4,9 @@ import colgatedb.page.Page;
 import colgatedb.page.PageId;
 import colgatedb.page.PageMaker;
 
+import java.awt.*;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 /**
@@ -24,6 +26,9 @@ import java.util.Map;
 public class BufferManagerImpl implements BufferManager {
 
     private boolean allowEvictDirty = false;  // a flag indicating whether a dirty page is candidate for eviction
+    private int numPages;
+    private DiskManager dm;
+    private HashMap<PageId,Frame> pagePair;
 
     /**
      * Construct a new buffer manager.
@@ -31,7 +36,9 @@ public class BufferManagerImpl implements BufferManager {
      * @param dm the disk manager to call to read/write pages
      */
     public BufferManagerImpl(int numPages, DiskManager dm) {
-        throw new UnsupportedOperationException("implement me!");
+        this.numPages=numPages;
+        this.dm=dm;
+        pagePair= new HashMap<PageId, Frame>(numPages);
     }
 
 
@@ -98,6 +105,10 @@ public class BufferManagerImpl implements BufferManager {
             this.page = page;
             this.pinCount = 1;   // assumes Frame is created on first pin -- feel free to modify as you see fit
             this.isDirty = false;
+        }
+
+        public Page getPage(){
+            return this.page;
         }
     }
 
