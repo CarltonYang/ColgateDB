@@ -45,22 +45,23 @@ public class BufferManagerImpl implements BufferManager {
         clocklist = new DoublyLinkedList(numPages);
     }
 
-
     @Override
     public synchronized Page pinPage(PageId pid, PageMaker pageMaker) {
         Frame tempFrame= null;
         if (frameMap.containsKey(pid)) {
             tempFrame = frameMap.get(pid);
+            int pinCountRemoveFrame= tempFrame.getPinCount();
             tempFrame.incrementPin();
             frameMap.put(pid, tempFrame);
-            clocklist.removeFrame(tempFrame);
+            if (pinCountRemoveFrame==0){
+                clocklist.removeFrame(tempFrame);
+            }
             return getPage(pid);
         } else {
             if (frameMap.size()==numPages){
                 evictPage();
             }
             Page newPage = dm.readPage(pid, pageMaker);
-
             frameMap.put(pid, new Frame(newPage));
             return newPage;
         }
@@ -139,6 +140,44 @@ public class BufferManagerImpl implements BufferManager {
         frameMap.remove(pid);
     }
 
+
+    /*
+     * This function finds a candidate page for eviction upon request.
+     * I choose LRU as my eviction algorithm.
+     * My implementation of an efficient eviction strategy involves a doubly linked list with frame
+     * as node and a hashmap with pid as key and frame as value. The idea is to use doubly linked list
+     * for updating the queue and access the page through hashmap.
+     *
+     * Every page has a pid and when they are brought into buffer pool, they are kepted in a frame where
+     * additional information is kept. Pincount is larger than 0 when a page is pinned and 0 when it is not
+     * requested by any prgrame. We only keep pages with 0 pincount in the LRU queue: the page is put into
+     * the head of the queue when some program unpins the page and the pincount becomes 0. Obviously, when
+     * a page is in the queue but pinned again, we will remove it from the queue. Accessing a page in the
+     * buffer pool is always constant time because of hashmap.
+     *
+     * In pinpage(), if the requested page is already in the buffer pool, then we simply access the page
+     * with pid, update pincount and if pincount was 0 (meaning the the page
+     * was in LRU queue) remove it from the queue. It is clear that access through hashmap and update incount
+     * are both constant time operations. As for removing the frame from the list, we enjoy the benefit of
+     * having a doubly linked list instead of a normal one. Here we do not have to linearly iterate through
+     * all the nodes; we can simlpy connect the frames before and after the current frame through the prev and next
+     * pointers inside the frame. Thus it is constant time as well.
+     *
+     * If the page is not in the buffer pool, then we need to bring it in. Assume that allowEvictDirty is true,
+     * and there are frames in the queue.
+     * Then we simply choose the tail of the queue and evict this page because only pages with pincount 0 are
+     * allowed in the queue. This is constant time since there is a pointer to the tail of the queue.
+     *
+     * When allowEvictDirty is false, however, the runtime could be slightly slower since we have one queue
+     * for both dirty and clean pages. We have no other choice but iterate through all of them from the least
+     * recently used one (which is tail of the queue). The runtime is O(n) when every page in
+     * the queue is dirty or the only clean one is the head. Nonetheless, n is not necessarily always the size of the
+     * buffer pool since only pages with pincount 0 are allowed in the queue. The extreme case happens when all the
+     * pages in the buffer pool are dirty with pincount of 0. In the worst case, the algorithm will have a runtime linear
+     * to the size of the pool.
+     *
+     * Overall, the runtime should perform efficiently (constant time) when allowEvictDirty is true.
+     */
     private synchronized void evictPage(){
         if (clocklist.getCurrSize()==0){
             throw new BufferManagerException("No unpinned page avaliable!");
@@ -166,8 +205,8 @@ public class BufferManagerImpl implements BufferManager {
         throw new BufferManagerException("All frames are dirty! Enable AllowEvictDirty and try again!");
     }
     /**
-     * A frame holds one page and maintains state about that page.  You are encouraged to use this
-     * in your design of a BufferManager.  You may also make any warranted modifications.
+     * A frame holds one page and maintains state about that page. It is modified to serves as a Node in
+     * doubly linked list and has prev and next.
      */
     private class Frame {
         private Page page;
@@ -227,6 +266,9 @@ public class BufferManagerImpl implements BufferManager {
         }
     }
 
+    /*
+     * A sub class that implements an efficient queue for LRU
+     */
     private class DoublyLinkedList {
         private final int size;
         private int currSize;
