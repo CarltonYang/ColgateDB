@@ -75,6 +75,10 @@ public class HeapFile implements DbFile {
         return this.td;
     }
 
+    /*
+     * this helper function either finds a page with a free slot or allocate a new
+     * page and returns it
+     */
     private SlottedPage getFreePage(TransactionId tid) throws TransactionAbortedException{
         BufferManager buf= Database.getBufferManager();
         for (int i = 0; i < this.numPages; i++) {
@@ -97,7 +101,7 @@ public class HeapFile implements DbFile {
         SlottedPage newPage= getFreePage(tid);
         newPage.insertTuple(t);
         PageId pid= newPage.getId();
-        buf.unpinPage(pid,true);
+        buf.unpinPage(pid,true);//pinpage called inside getFreePage(), inserted a page -> dirty;
     }
 
 
@@ -118,7 +122,7 @@ public class HeapFile implements DbFile {
             PageId pid= t.getRecordId().getPageId();
             SlottedPage pagewithTuple= (SlottedPage) Database.getBufferManager().pinPage(pid,this.pageMaker);
             pagewithTuple.deleteTuple(t);
-            Database.getBufferManager().unpinPage(pid,true);
+            Database.getBufferManager().unpinPage(pid,true);//deleted a page -> dirty
         }
     }
 
@@ -134,7 +138,7 @@ public class HeapFile implements DbFile {
         private boolean isOpened = false;
         private TransactionId tid;
         private int currentPage;
-        private Iterator<Tuple> pageIter;
+        private Iterator<Tuple> pageIterator;
 
         public HeapFileIterator(TransactionId tid) {
             this.tid=tid;
@@ -144,16 +148,24 @@ public class HeapFile implements DbFile {
         public void open() throws TransactionAbortedException {
             if(!isOpened){
                 currentPage=0;
-                this.pageIter=getPageIterator(currentPage);
+                isOpened=true;
+                this.pageIterator=getPageIterator(currentPage);
             }
         }
 
+        /*
+         * this helper function finds specific page and returns its iterator
+         * so that only one page of data is store in the iterator not all of them
+         */
         private Iterator<Tuple> getPageIterator(int currentPage) throws TransactionAbortedException, DbException {
             SimplePageId pid = new SimplePageId(tableid, currentPage);
             SlottedPage page = (SlottedPage) Database.getBufferManager().pinPage(pid,pageMaker);
             return page.iterator();
         }
 
+        /*
+         * this helper function unpins the page called earlier
+         */
         private void unpinPageUsedbyIterator(int pageNum){
             SimplePageId pid = new SimplePageId(tableid, pageNum);
             Database.getBufferManager().unpinPage(pid,false);
@@ -161,56 +173,55 @@ public class HeapFile implements DbFile {
 
         @Override
         public boolean hasNext() throws TransactionAbortedException {
-            Iterator<Tuple> pageIterCurr= pageIter;
-            if (pageIter == null) {
+            Iterator<Tuple> pageIteratorCurrent= pageIterator;
+            if (pageIterator == null|| !isOpened) { //return false if not open
                 return false;
-            } else if (pageIter.hasNext())
+            } else if (pageIterator.hasNext()) //return true if next is in the same page
                 return true;
-            if (currentPage >= numPages()) {
+            if (currentPage >= numPages()) { //return false if reaching end of all pages
                 return false;
-            } else {
-                int pgNo = currentPage;
-                int curr= currentPage;
+            } else { //try to find next in the next page
+                int pageNum = currentPage;
                 unpinPageUsedbyIterator(currentPage);
-                pgNo++;
-                while (pgNo < numPages()) {
-                    Iterator<Tuple> iter = getPageIterator(pgNo);
+                pageNum++;
+                while (pageNum < numPages()) {
+                    Iterator<Tuple> iter = getPageIterator(pageNum);
                     if (iter.hasNext()) {
-                        unpinPageUsedbyIterator(pgNo);
-                        getPageIterator(curr);
-                        this.pageIter=pageIterCurr;
+                        unpinPageUsedbyIterator(pageNum);
+                        getPageIterator(currentPage);
+                        this.pageIterator=pageIteratorCurrent;
                         return true;
                     }
-                    unpinPageUsedbyIterator(pgNo);
-                    pgNo++;
+                    unpinPageUsedbyIterator(pageNum);
+                    pageNum++;
                 }
-                getPageIterator(curr);
-                this.pageIter=pageIterCurr;
+                getPageIterator(currentPage);
+                this.pageIterator=pageIteratorCurrent;
                 return false;
             }
         }
 
         @Override
         public Tuple next() throws TransactionAbortedException, NoSuchElementException {
-            if (!hasNext())
-                throw new NoSuchElementException("no tuple");
+            if (!hasNext() || !isOpened) //return false if not open
+                throw new NoSuchElementException("There is no more tuple in the heap file!");
             else {
-                if (pageIter.hasNext())
-                    return pageIter.next();
-                else {
+                if (pageIterator.hasNext()) //return next if it is in the same page
+                    return pageIterator.next();
+                else {  //move on to the next page to find next()
                     unpinPageUsedbyIterator(currentPage);
                     currentPage++;
                     while (currentPage < numPages()) {
-                        pageIter = getPageIterator(currentPage);
-                        if (pageIter.hasNext()){
-                            return pageIter.next();
+                        pageIterator = getPageIterator(currentPage);
+                        if (pageIterator.hasNext()){ // return next if the new page has next
+                            return pageIterator.next();
                         }
                         unpinPageUsedbyIterator(currentPage);
                         currentPage++;
                     }
                 }
             }
-            throw new NoSuchElementException("no tuple");
+            throw new NoSuchElementException("There is no more tuple in the heap file!");
         }
 
         @Override
@@ -222,7 +233,7 @@ public class HeapFile implements DbFile {
         @Override
         public void close() {
             isOpened = false;
-            pageIter = null;
+            pageIterator = null;
             unpinPageUsedbyIterator(currentPage);
         }
     }
