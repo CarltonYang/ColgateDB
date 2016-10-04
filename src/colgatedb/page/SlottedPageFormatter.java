@@ -164,8 +164,8 @@ public class SlottedPageFormatter {
 
             for (int i=0; i<pageSlots; i++ ){
                 Tuple tempTuple = new Tuple(td);
-                RecordId rid = new RecordId(emptyPage.getId(), i);
-                tempTuple.setRecordId(rid);
+                //RecordId rid = new RecordId(emptyPage.getId(), i);
+                //tempTuple.setRecordId(rid);
                 for (int j = 0; j < numFields; j++) {
                     tempTuple.setField(j, td.getFieldType(j).parse(dis));
                 }

@@ -59,7 +59,12 @@ public class SlottedPage implements Page {
 
         @Override
         public boolean hasNext() {
-            return currIdx < (getNumSlots());
+            for (int i = currIdx; i < getNumSlots() ; i++) {
+                if (isSlotUsed(i))
+                    return true;
+            }
+            return false;
+
         }
 
         @Override
@@ -67,6 +72,7 @@ public class SlottedPage implements Page {
             if (!hasNext()) {   // always check!
                 throw new NoSuchElementException();
             }
+
             while(isSlotEmpty(currIdx)){
                 currIdx++;
             }
@@ -232,6 +238,7 @@ public class SlottedPage implements Page {
         else{
             for (int i=0; i< getNumSlots(); i++){
                 if (tuples[i].equals(t)){
+                    tuples[i].setRecordId(null);
                     tuples[i]=null;
                     break;
                 }
