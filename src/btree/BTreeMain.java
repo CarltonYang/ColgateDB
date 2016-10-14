@@ -21,7 +21,23 @@ public class BTreeMain {
         } catch (BTreeException e) {
             // expected
         }
-        System.out.println(bTree.getRecord(2));  // should print 'record r2'
+        bTree.insert(1,"record r1");
+        bTree.insert(3,"new record");
+        bTree.insert(4,"new record2");
+        bTree.insert(5,"record r5");
+        bTree.insert(6,"record r6");
+        bTree.insert(7,"record r7");
+        bTree.insert(8,"record r8");
+        bTree.insert(13,"record r13");
+
+        bTree.insert(14,"record r14");
+        bTree.insert(15,"record r15");
+        bTree.insert(9,"record r9");
+        bTree.insert(10,"record r10");
+        bTree.insert(11,"record r11");
+        bTree.insert(12,"record r12");
+
+        System.out.println(bTree.getRecord(12));  // should print 'record r2'
         System.out.println(bTree);               // should print entire tree
     }
 }

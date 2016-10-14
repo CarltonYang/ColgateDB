@@ -10,7 +10,11 @@ package btree;
 public abstract class Entry {
 
     protected int key;  // initialize in constructor
+    public Entry(int key){
+        this.key=key;
+    }
 
+    abstract public String toString();
     public int key() {
         return key;
     };
