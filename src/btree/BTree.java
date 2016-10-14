@@ -7,6 +7,7 @@ import java.util.*;
  * @author Michael Hay mhay@colgate.edu
  */
 public class BTree {
+    
     private static int degree;
     private static Node root;
     private HashSet<Integer> records;
@@ -61,7 +62,7 @@ public class BTree {
                 return newchildentry;
             }
             else{
-                if (pointer.size()<2*degree){
+                if (pointer.size()<2*degree+1){
                     newchildentry.getData().setParent(pointer);
                     ((InnerNode) pointer).insert(newchildentry);
                     newchildentry=null;
@@ -78,15 +79,6 @@ public class BTree {
                         i--;
                     }
                     newchildentry=new IndexEntry(innerNode2,innerNode2.getEntry().get(0).key());
-
-                    /*if (pointer.getParent()==null){
-                        InnerNode newroot=new InnerNode();
-                        pointer.setParent(newroot);
-                        innerNode2.setParent(newroot);
-                        newroot.insert(new IndexEntry(pointer,Integer.MIN_VALUE));
-                        newroot.insert(newchildentry);
-                        this.root=newroot;
-                    }*/
                     insertNewRoot(pointer,innerNode2,newchildentry);
                     return newchildentry;
                 }
@@ -109,14 +101,6 @@ public class BTree {
                     i--;
                 }
                 newchildentry=new IndexEntry(leafNode2,leafNode2.getEntry().get(0).key());
-                /*if (pointer.getParent()==null){
-                    InnerNode temp=new InnerNode();
-                    pointer.setParent(temp);
-                    leafNode2.setParent(temp);
-                    temp.insert(new IndexEntry(pointer,Integer.MIN_VALUE));
-                    temp.insert(newchildentry);
-                    this.root=temp;
-                }*/
                 insertNewRoot(pointer,leafNode2,newchildentry);
                 return newchildentry;
             }
@@ -144,8 +128,7 @@ public class BTree {
         LeafNode temp= (LeafNode)tree_search(root,key);
         if (temp!=null){
             return temp.search(key);
-        }
-        else{
+        } else{
             return null;
         }
     }
@@ -184,48 +167,29 @@ public class BTree {
      */
     @Override
     public String toString() {
-        Vector<Node> nodeList = new Vector();
-
-        // put the root of the tree onto the stack to start the process
-        nodeList.add(root);
-        String toprint = "";
-        boolean done = false;
-        while(! done) {
-            // this vector will hold all the children of the nodes in the current level
+        Vector<Node> printList = new Vector();
+        printList.add(root);
+        String temp = "";
+        boolean finished = false;
+        while(! finished) {
             Vector<Node> nextLevelList = new Vector();
-
-
-            // for each node in the list convert it to a string and add any children to the nextlevel stack
-            for(int i=0; i < nodeList.size(); i++) {
-
-                // get the node at position i
-                Node node = (Node)nodeList.elementAt(i);
-
-                // convert the node into a string
-                toprint += node.toString() + " ";
-
-                // if this is a leaf node we need only print the contents
+            for(int i=0; i < printList.size(); i++) {
+                Node node = (Node)printList.elementAt(i);
+                temp += node.toString() + " ";
                 if(node instanceof LeafNode) {
-                    done = true;
-                }
-                // if this is a tree node print the contents and populate
-                // the temp vector with nodes that node i points to
-                else
-                {
+                    finished = true;
+                } else {
                     for(int j=0; j < node.size() ; j++) {
-                        nextLevelList.add( ((InnerNode)node).getPointerAt(j) );
+                        nextLevelList.add(((InnerNode)node).getPointerAt(j));
                     }
                 }
             }
-
-            // print the level
-
-            toprint+=System.lineSeparator();
-            // go to the next level and print it
-            nodeList = nextLevelList;
+            temp+=System.lineSeparator();
+            printList = nextLevelList;
         }
-        return toprint;
+        return temp;
     }
+
 
     /**
      * Internal tree node.
@@ -238,10 +202,15 @@ public class BTree {
         Node() {
             parent = null;
             entry = new Vector();
-
         }
-        public void insert(IndexEntry indexEntry){
 
+        //to be overriden in subclasses
+        public void insert(IndexEntry indexEntry){
+        }
+
+        //to be overriden in subclasses
+        public String toString() {
+            return null;
         }
 
         public Node getParent(){
@@ -256,18 +225,11 @@ public class BTree {
             return entry.size();
         }
 
-
         public void setParent(Node parent) {
             this.parent = parent;
         }
 
-        public String toString() {
-            String s = "";
-            for(int i=0; i < entry.size(); i++) {
-                s += ((Entry)entry.get(i)).toString() + " ";
-            }
-            return s + "#";
-        }
+
     }
 
     public class InnerNode extends Node{
@@ -297,16 +259,21 @@ public class BTree {
             }
             entry.add(i,indexEntry);
         }
+
+        public String toString() {
+            String s = "#";
+            for(int i=1; i < entry.size(); i++) {
+                s += ((Entry)entry.get(i)).toString() + " ";
+            }
+            s=s.substring(0,s.length()-1);
+            return s + "#";
+        }
     }
 
     public class LeafNode extends Node{
-        private LeafNode nextNode;
-        private LeafNode prevNode;
 
         LeafNode() {
             super();
-            nextNode = null;
-            prevNode = null;
         }
 
         public void insert(DataEntry dataEntry){
@@ -327,22 +294,6 @@ public class BTree {
             return temp;
         }
 
-        public void setNextNode(LeafNode next) {
-            nextNode = next;
-        }
-
-        public LeafNode getNextNode() {
-            return nextNode;
-        }
-
-        public void setPervNode(LeafNode prev) {
-            prevNode = prev;
-        }
-
-        public LeafNode getPrevNode() {
-            return prevNode;
-        }
-
         public Object search(int key) {
             for(int i=0; i < entry.size(); i++) {
                 if( (entry.get(i)).key() == key ) {
@@ -350,6 +301,15 @@ public class BTree {
                 }
             }
             return null;
+        }
+
+        public String toString() {
+            String s = "#";
+            for(int i=0; i < entry.size(); i++) {
+                s += ((Entry)entry.get(i)).toString() + ";";
+            }
+            s=s.substring(0,s.length()-1);
+            return s + "#";
         }
     }
 }
