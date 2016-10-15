@@ -87,6 +87,7 @@ public class HeapFile implements DbFile {
             if (page.getNumEmptySlots() > 0) {
                 return page;
             }
+            buf.unpinPage(pid,false);
         }
         SimplePageId pid = new SimplePageId(tableid, numPages);
         buf.allocatePage(pid);

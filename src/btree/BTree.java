@@ -7,7 +7,7 @@ import java.util.*;
  * @author Michael Hay mhay@colgate.edu
  */
 public class BTree {
-    
+
     private static int degree;
     private static Node root;
     private HashSet<Integer> records;
