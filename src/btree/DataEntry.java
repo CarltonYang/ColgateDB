@@ -1,5 +1,7 @@
 package btree;
 
+import javafx.beans.binding.ObjectExpression;
+
 /**
  * B+Tree Lab
  * @author Michael Hay mhay@colgate.edu
@@ -9,4 +11,22 @@ package btree;
  */
 public class DataEntry extends Entry {
 
+    private Object Data;
+
+    public DataEntry(Object obj,int key){
+        super(key);
+        this.Data=obj;
+    }
+
+    public String toString(){
+        return Integer.toString(key)+ "," + Data.toString();
+    }
+
+    public void setData(Object obj){
+        this.Data=obj;
+    }
+
+    public Object getData(){
+        return this.Data;
+    }
 }

@@ -52,7 +52,6 @@ public class BufferManagerImpl implements BufferManager {
             tempFrame = frameMap.get(pid);
             int pinCountRemoveFrame= tempFrame.getPinCount();
             tempFrame.incrementPin();
-            frameMap.put(pid, tempFrame);
             if (pinCountRemoveFrame==0){
                 clocklist.removeFrame(tempFrame);
             }
