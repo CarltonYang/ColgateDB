@@ -3,6 +3,7 @@ package colgatedb.operators;
 import colgatedb.DbException;
 import colgatedb.transactions.TransactionAbortedException;
 import colgatedb.tuple.Tuple;
+import colgatedb.tuple.TupleDesc;
 
 import java.util.NoSuchElementException;
 
@@ -26,6 +27,11 @@ import java.util.NoSuchElementException;
  */
 public class Filter extends Operator {
 
+    private static final long serialVersionUID = 1L;
+    private Predicate p;
+    private DbIterator child;
+    private boolean open;
+    private TupleDesc td;
 
     /**
      * Constructor accepts a predicate to apply and a child operator to read
@@ -35,48 +41,66 @@ public class Filter extends Operator {
      * @param child The child operator
      */
     public Filter(Predicate p, DbIterator child) {
-        throw new UnsupportedOperationException("implement me!");
+        this.p=p;
+        this.child=child;
+        td=this.child.getTupleDesc();
+        open=false;
     }
 
     public Predicate getPredicate() {
-        throw new UnsupportedOperationException("implement me!");
+        return p;
     }
 
     @Override
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
-        throw new UnsupportedOperationException("implement me!");
+        child.open();
+        open=true;
     }
 
     @Override
     public void close() {
-        throw new UnsupportedOperationException("implement me!");
+        child.close();
+        open=false;
     }
 
     @Override
     public void rewind() throws DbException, TransactionAbortedException {
-        throw new UnsupportedOperationException("implement me!");
+        child.rewind();
     }
 
     @Override
     public boolean hasNext() throws DbException, TransactionAbortedException {
-        throw new UnsupportedOperationException("implement me!");
+        return open && child.hasNext();
     }
 
     @Override
     public Tuple next() throws DbException, TransactionAbortedException,
             NoSuchElementException {
-        throw new UnsupportedOperationException("implement me!");
+        if (!hasNext()) {
+            throw new NoSuchElementException("no more tuples!");
+        }
+        Tuple t = child.next();
+        while (!p.filter(t)){
+            if (!hasNext()) {
+                throw new NoSuchElementException("no more tuples!");
+            }
+            t=child.next();
+        }
+        return t;
     }
 
     @Override
     public DbIterator[] getChildren() {
-        throw new UnsupportedOperationException("implement me!");
+        return new DbIterator[]{this.child};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        throw new UnsupportedOperationException("implement me!");
+        if (children.length != 1) {
+            throw new DbException("Expected only one child!");
+        }
+        child = children[0];
     }
 
 }
