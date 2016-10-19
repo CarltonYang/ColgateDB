@@ -5,10 +5,7 @@ import colgatedb.DbException;
 import colgatedb.operators.*;
 import colgatedb.transactions.TransactionAbortedException;
 import colgatedb.transactions.TransactionId;
-import colgatedb.tuple.Op;
-import colgatedb.tuple.StringField;
-import colgatedb.tuple.Tuple;
-import colgatedb.tuple.Type;
+import colgatedb.tuple.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,25 +34,42 @@ public class Lab7Main {
         System.out.println("Loading schema from file: " + filename);
         Database.getCatalog().loadSchema(filename);
 
-        // SQL query: SELECT * FROM STUDENTS WHERE name="Alice"
-        // algebra translation: select_{name="alice"}( Students )
-        // query plan: a tree with the following structure
-        // - a Filter operator is the root; filter keeps only those w/ name=Alice
-        // - a SeqScan operator on Students at the child of root
+
+
+        // initiate all three tables
         TransactionId tid = new TransactionId();
         SeqScan scanStudents = new SeqScan(tid, Database.getCatalog().getTableId("Students"));
-        StringField alice = new StringField("alice", Type.STRING_LEN);
-        Predicate p = new Predicate(1, Op.EQUALS, alice);
-        Filter filterStudents = new Filter(p, scanStudents);
+        SeqScan scanTakes = new SeqScan(tid, Database.getCatalog().getTableId("Takes"));
+        SeqScan scanProfs = new SeqScan(tid, Database.getCatalog().getTableId("Profs"));
+
+        // select professor hay from all profs table
+        StringField hay = new StringField("hay", Type.STRING_LEN);
+        Predicate p = new Predicate(1, Op.EQUALS, hay);
+        Filter filterProfs = new Filter(p, scanProfs);
+
+        // join professor hay's favourite course with Takes table
+        JoinPredicate jpc= new JoinPredicate(1, Op.EQUALS, 2);
+        Join joinProfCour = new Join (jpc, scanTakes, filterProfs );
+
+        // join previous table with Students table
+        JoinPredicate jp= new JoinPredicate(0, Op.EQUALS, 0);
+        Join joinStuTakes = new Join(jp, scanStudents, joinProfCour);
+
+        // project name of the previous table
+        ArrayList<Integer> fieldList= new ArrayList<Integer>(2);
+        fieldList.add(0,1);
+        Type[] types=new Type[1];
+        types[0]=Type.STRING_TYPE;
+        Project proResult = new Project( fieldList, types, joinStuTakes);
 
         // query execution: we open the iterator of the root and iterate through results
         System.out.println("Query results:");
-        filterStudents.open();
-        while (filterStudents.hasNext()) {
-            Tuple tup = filterStudents.next();
+        proResult.open();
+        while (proResult.hasNext()) {
+            Tuple tup = proResult.next();
             System.out.println("\t"+tup);
         }
-        filterStudents.close();
+        proResult.close();
 
 
     }
