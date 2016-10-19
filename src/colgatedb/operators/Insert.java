@@ -32,7 +32,13 @@ import java.util.NoSuchElementException;
  */
 public class Insert extends Operator {
 
-
+    private static final long serialVersionUID = 1L;
+    private TransactionId t;
+    private DbIterator child;
+    private int tableid;
+    private int numInsert;
+    private boolean called;
+    private Tuple current;
     /**
      * Constructor.
      *
@@ -44,7 +50,16 @@ public class Insert extends Operator {
      */
     public Insert(TransactionId t, DbIterator child, int tableid)
             throws DbException {
-        throw new UnsupportedOperationException("implement me!");
+        this.t = t;
+        this.child = child;
+        this.tableid = tableid;
+        setTupleDesc(child.getTupleDesc());
+        if (!Database.getCatalog().getTupleDesc(tableid).equals(child.getTupleDesc())) {
+            throw new DbException("TupleDesc from child and table don't match!");
+        }
+        called = false;
+        numInsert = 0;
+        current = new Tuple(getTupleDesc());
     }
 
     /**
@@ -52,22 +67,20 @@ public class Insert extends Operator {
      */
     @Override
     public TupleDesc getTupleDesc() {
-        throw new UnsupportedOperationException("implement me!");
+        String[] fieldAr= new String[1];
+        fieldAr[0]="count";
+        return new TupleDesc(new Type[]{Type.INT_TYPE}, fieldAr);
     }
 
     @Override
-    public void open() throws DbException, TransactionAbortedException {
-        throw new UnsupportedOperationException("implement me!");
-    }
+    public void open() throws DbException, TransactionAbortedException { }
 
     @Override
-    public void close() {
-        throw new UnsupportedOperationException("implement me!");
-    }
+    public void close() {}
 
     @Override
     public void rewind() throws DbException, TransactionAbortedException {
-        throw new UnsupportedOperationException("implement me!");
+        called = false;
     }
 
     /**
@@ -78,7 +91,7 @@ public class Insert extends Operator {
      */
     @Override
     public boolean hasNext() throws DbException, TransactionAbortedException {
-        throw new UnsupportedOperationException("implement me!");
+        return (!called);
     }
 
     /**
@@ -95,17 +108,32 @@ public class Insert extends Operator {
     @Override
     public Tuple next() throws DbException, TransactionAbortedException,
             NoSuchElementException {
-        throw new UnsupportedOperationException("implement me!");
+        if (!hasNext()){
+            throw new NoSuchElementException("Called more than once!");
+        }
+        else{
+            called = true;
+            child.open();
+                while (child.hasNext()) {
+                    Database.getCatalog().getDatabaseFile(tableid).insertTuple(t, child.next());
+                    numInsert++;
+                }
+            current.setField(0, new IntField(numInsert));
+            return current;
+        }
     }
 
     @Override
     public DbIterator[] getChildren() {
-        throw new UnsupportedOperationException("implement me!");
+        return new DbIterator[]{child};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        throw new UnsupportedOperationException("implement me!");
+        if (children.length != 1) {
+            throw new DbException("Expected only one child!");
+        }
+        this.child = children[0];
     }
 }
 
