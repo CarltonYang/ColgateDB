@@ -95,6 +95,89 @@ public class JoinTest {
         OperatorTestUtility.matchAllTuples(eqJoin, op);
     }
 
+    /**
+     * Unit test that uses an > predicate.  Joins scan1 and scan2 based on
+     * the first attribute in each relation.  Each tuple in scan1 may have multiple
+     * matches in scan2.
+     */
+    @Test
+    public void GreaterThanJoin() throws Exception{
+        DbIterator Join1 = OperatorTestUtility.createTupleList(width1 + width2,
+                new int[]{3, 4, 1, 2, 3,
+                        5, 6, 1, 2, 3,
+                        5, 6, 3, 4, 5,
+                        5, 6, 2, 3, 4,
+                        5, 6, 4, 5, 6,
+                        7, 8, 1, 2, 3,
+                        7, 8, 2, 3, 4,
+                        7, 8, 3, 4, 5,
+                        7, 8, 4, 5, 6,
+                        7, 8, 5, 6, 7});
+
+        JoinPredicate pred = new JoinPredicate(0, Op.GREATER_THAN, 0);
+        Join op = new Join(pred, scan1, scan2);
+        op.open();
+        Join1.open();
+        OperatorTestUtility.matchAllTuples(Join1, op);
+    }
+
+    /**
+     * Unit test that uses an <> predicate.  Joins scan1 and scan2 based on
+     * the first attribute in each relation.  Each tuple in scan1 may have multiple
+     * matches in scan2.
+     */
+    @Test
+    public void NotEqualJoin() throws Exception{
+        DbIterator Join1 = OperatorTestUtility.createTupleList(width1 + width2,
+                new int[]{3, 4, 5, 6, 7,
+                        3, 4, 4, 5, 6,
+                        1, 2, 2, 3, 4,
+                        1, 2, 3, 4, 5,
+                        1, 2, 4, 5, 6,
+                        1, 2, 5, 6, 7,
+                        3, 4, 1, 2, 3,
+                        5, 6, 1, 2, 3,
+                        5, 6, 3, 4, 5,
+                        5, 6, 2, 3, 4,
+                        5, 6, 4, 5, 6,
+                        7, 8, 1, 2, 3,
+                        7, 8, 2, 3, 4,
+                        7, 8, 3, 4, 5,
+                        7, 8, 4, 5, 6,
+                        7, 8, 5, 6, 7});
+
+        JoinPredicate pred = new JoinPredicate(0, Op.NOT_EQUALS, 0);
+        Join op = new Join(pred, scan1, scan2);
+        op.open();
+        Join1.open();
+        OperatorTestUtility.matchAllTuples(Join1, op);
+    }
+
+    /**
+     * Unit test that uses an <= predicate.  Joins scan1 and scan2 based on
+     * the first attribute in each relation.  Each tuple in scan1 may have multiple
+     * matches in scan2.
+     */
+    @Test
+    public void LessThanOrEqualJoin() throws Exception{
+        DbIterator Join1 = OperatorTestUtility.createTupleList(width1 + width2,
+                new int[]{3, 4, 5, 6, 7,
+                        3, 4, 4, 5, 6,
+                        1, 2, 2, 3, 4,
+                        1, 2, 3, 4, 5,
+                        1, 2, 4, 5, 6,
+                        1, 2, 5, 6, 7,
+                        1, 2, 1, 2, 3,
+                        3, 4, 3, 4, 5,
+                        5, 6, 5, 6, 7});
+
+        JoinPredicate pred = new JoinPredicate(0, Op.LESS_THAN_OR_EQ, 0);
+        Join op = new Join(pred, scan1, scan2);
+        op.open();
+        Join1.open();
+        OperatorTestUtility.matchAllTuples(Join1, op);
+    }
+
     @Test
     public void rewind() throws Exception {
         JoinPredicate pred = new JoinPredicate(0, Op.EQUALS, 0);
