@@ -155,7 +155,9 @@ public class OperatorTestUtility {
     public static boolean checkExhausted(DbIterator it)
             throws TransactionAbortedException, DbException {
 
-        if (it.hasNext()) return false;
+        if (it.hasNext()){
+            return false;
+        }
 
         try {
             Tuple t = it.next();
