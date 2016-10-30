@@ -2,9 +2,7 @@ package colgatedb.operators;
 
 import colgatedb.tuple.*;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
+import java.util.*;
 
 /**
  * ColgateDB
@@ -23,6 +21,11 @@ import java.util.LinkedList;
  */
 public class StringAggregator implements Aggregator {
 
+    private int gbfield;
+    private Type gbfieldtype;
+    private int afiled;
+    private Op operand;
+    private AggregateFields aggregateFields;
 
     /**
      * Aggregate constructor
@@ -35,7 +38,11 @@ public class StringAggregator implements Aggregator {
      */
 
     public StringAggregator(int gbfield, Type gbfieldtype, int afield, Op what) {
-        throw new UnsupportedOperationException("implement me!");
+        this.gbfield = gbfield;
+        this.gbfieldtype = gbfieldtype;
+        this.afiled = afield;
+        this.operand = what;
+        this.aggregateFields= new AggregateFields(operand.toString());
     }
 
     /**
@@ -44,7 +51,12 @@ public class StringAggregator implements Aggregator {
      * @param tup the Tuple containing an aggregate field and a group-by field
      */
     public void mergeTupleIntoGroup(Tuple tup) {
-        throw new UnsupportedOperationException("implement me!");
+        if(gbfieldtype==null){
+            aggregateFields.incrementCount();
+        }
+        else{
+            aggregateFields.addTuple(tup);
+        }
     }
 
     /**
@@ -55,8 +67,10 @@ public class StringAggregator implements Aggregator {
      * grouping. The aggregateVal is determined by the type of
      * aggregate specified in the constructor.
      */
-    public DbIterator iterator() {
-        throw new UnsupportedOperationException("implement me!");
+    public DbIterator iterator(){
+        aggregateFields.initializeList();
+        TupleIterator tupleIterator= new TupleIterator(aggregateFields.getTupleDesc(),aggregateFields.result);
+        return tupleIterator;
     }
 
     /**
@@ -65,10 +79,55 @@ public class StringAggregator implements Aggregator {
     private class AggregateFields {
         public String groupVal;
         public int count;
+        public Map<Field,Integer> tempVal;
+        private List<Tuple> result;
 
         public AggregateFields(String groupVal) {
             this.groupVal = groupVal;
             count = 0;
+            this.result = new LinkedList<>();
+            this.tempVal = new HashMap<>();
+        }
+
+        public void incrementCount(){
+            count++;
+        }
+
+        public void addTuple(Tuple tup){
+            Field gbKey = tup.getField(gbfield);
+            if(tempVal.containsKey(gbKey)) {
+                int tempCount  = tempVal.get(gbKey);
+                switch (operand) {
+                    case COUNT:
+                        tempVal.put(gbKey,++tempCount);
+
+                }
+            }else{
+                tempVal.put(gbKey,1);
+            }
+        }
+
+        public void initializeList(){
+            if (gbfieldtype!=null){
+                for (Map.Entry<Field, Integer> entry : tempVal.entrySet()){
+                    Tuple tuple = new Tuple(getTupleDesc());
+                    tuple.setField(0, entry.getKey());
+                    tuple.setField(1, new IntField(entry.getValue()));
+                    result.add(tuple);
+                }
+            }else {
+                Tuple tuple = new Tuple(getTupleDesc());
+                tuple.setField(0, new IntField(count));
+                result.add(tuple);
+            }
+        }
+
+        public TupleDesc getTupleDesc(){
+            if (gbfieldtype!=null){
+                return new TupleDesc(new Type[]{gbfieldtype, Type.INT_TYPE});
+            }else {
+                return new TupleDesc(new Type[]{Type.INT_TYPE});
+            }
         }
     }
 }

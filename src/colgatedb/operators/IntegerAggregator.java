@@ -2,9 +2,7 @@ package colgatedb.operators;
 
 import colgatedb.tuple.*;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
+import java.util.*;
 
 /**
  * ColgateDB
@@ -23,6 +21,11 @@ import java.util.LinkedList;
  */
 public class IntegerAggregator implements Aggregator {
 
+    private int gbfield;
+    private Type gbfieldtype;
+    private int afield;
+    private Op operand;
+    private AggregateFields aggregateFields;
     /**
      * Aggregate constructor
      *
@@ -35,7 +38,11 @@ public class IntegerAggregator implements Aggregator {
      */
 
     public IntegerAggregator(int gbfield, Type gbfieldtype, int afield, Op what) {
-        throw new UnsupportedOperationException("implement me!");
+        this.gbfield = gbfield;
+        this.gbfieldtype = gbfieldtype;
+        this.afield = afield;
+        this.operand = what;
+        this.aggregateFields=new AggregateFields(operand.toString());
     }
 
     /**
@@ -45,8 +52,14 @@ public class IntegerAggregator implements Aggregator {
      * @param tup the Tuple containing an aggregate field and a group-by field
      */
     public void mergeTupleIntoGroup(Tuple tup) {
-        throw new UnsupportedOperationException("implement me!");
+        if(gbfieldtype==null){
+            aggregateFields.incrementCount(tup);
+        }
+        else{
+            aggregateFields.addTuple(tup);
+        }
     }
+
 
     /**
      * Create a DbIterator over group aggregate results.
@@ -57,7 +70,9 @@ public class IntegerAggregator implements Aggregator {
      * the constructor.
      */
     public DbIterator iterator() {
-        throw new UnsupportedOperationException("implement me!");
+        aggregateFields.initializeList();
+        TupleIterator tupleIterator= new TupleIterator(aggregateFields.getTupleDesc(),aggregateFields.result);
+        return tupleIterator;
     }
 
     /**
@@ -66,12 +81,130 @@ public class IntegerAggregator implements Aggregator {
     private class AggregateFields {
         public String groupVal;
         public int min, max, sum, count, sumCount;
+        public Map<Field,Integer> tempVal;
+        public Map<Field,Integer> tempCount;
+        private List<Tuple> result;
 
         public AggregateFields(String groupVal) {
             this.groupVal = groupVal;
             min = Integer.MAX_VALUE;
             max = Integer.MIN_VALUE;
             sum = count = sumCount = 0;
+            this.result = new LinkedList<>();
+            this.tempVal = new HashMap<>();
+            this.tempCount = new HashMap<>();
+        }
+
+        private int getValue(Tuple tup){
+            IntField field = (IntField) tup.getField(afield);
+            int value = field.getValue();
+            return value;
+        }
+
+        public void incrementCount(Tuple tup){
+            int value= getValue(tup);
+            switch (operand){
+                case MIN:
+                    min = Math.min(value, min);
+                    break;
+                case MAX:
+                    max = Math.max(value, max);
+                    break;
+                case SUM:
+                    sum += value;
+                    break;
+                case COUNT:
+                    count++;
+                    break;
+                case AVG:
+                    sum++;
+                    sumCount += value;
+            }
+        }
+
+        public void addTuple(Tuple tup) {
+            int value = getValue(tup);
+            Field gbKey = tup.getField(gbfield);
+            if (tempVal.containsKey(gbKey)) {
+                int valtemp = tempVal.get(gbKey);
+                switch (operand) {
+                    case MIN:
+                        tempVal.put(gbKey, Math.min(valtemp, value));
+                        break;
+                    case MAX:
+                        tempVal.put(gbKey, Math.max(valtemp, value));
+                        break;
+                    case SUM:
+                        tempVal.put(gbKey, valtemp + value);
+                        break;
+                    case COUNT:
+                        tempVal.put(gbKey, ++valtemp);
+                        break;
+                    case AVG:
+                        tempVal.put(gbKey, valtemp + value);
+                        int countTemp = tempCount.get(gbKey);
+                        tempCount.put(gbKey, ++countTemp);
+                }
+            } else {
+                switch (operand) {
+                    case COUNT:
+                        tempVal.put(gbKey, 1);
+                        break;
+                    case AVG:
+                        tempVal.put(gbKey, value);
+                        tempCount.put(gbKey, 1);
+                        break;
+                    default:
+                        tempVal.put(gbKey, value);
+                }
+            }
+        }
+
+        public void initializeList(){
+            if (gbfieldtype!=null){
+                for (Map.Entry<Field, Integer> entry : tempVal.entrySet()) {
+                    Tuple tuple = new Tuple(getTupleDesc());
+                    tuple.setField(0, entry.getKey());
+                    switch (operand) {
+                        case AVG:
+                            int average= entry.getValue()/tempCount.get(entry.getKey());
+                            tuple.setField(1, new IntField(average));
+                        break;
+                        default:
+                            tuple.setField(1, new IntField(entry.getValue()));
+                        }
+                    result.add(tuple);
+                }
+            }else {
+                Tuple tuple = new Tuple(getTupleDesc());
+                int tempresult=0;
+                switch (operand) {
+                    case MIN:
+                        tempresult = min;
+                        break;
+                    case MAX:
+                        tempresult = max;
+                        break;
+                    case SUM:
+                        tempresult = sum;
+                        break;
+                    case COUNT:
+                        tempresult = count;
+                        break;
+                    case AVG:
+                        tempresult = sum/sumCount;
+                }
+                tuple.setField(0, new IntField(tempresult));
+                result.add(tuple);
+            }
+        }
+
+        public TupleDesc getTupleDesc(){
+            if (gbfieldtype!=null){
+                return new TupleDesc(new Type[]{gbfieldtype, Type.INT_TYPE});
+            }else {
+                return new TupleDesc(new Type[]{Type.INT_TYPE});
+            }
         }
     }
 

@@ -30,6 +30,13 @@ import java.util.NoSuchElementException;
  */
 public class Aggregate extends Operator {
 
+    private int afield;
+    private int gfield;
+    private Aggregator aggregator;
+    private Aggregator.Op aop;
+    private DbIterator aIterator;
+    private DbIterator child;
+
     /**
      * Constructor.
      * <p/>
@@ -44,7 +51,36 @@ public class Aggregate extends Operator {
      * @param aop    The aggregation operator to use
      */
     public Aggregate(DbIterator child, int afield, int gfield, Aggregator.Op aop) {
-        throw new UnsupportedOperationException("implement me!");
+        this.child=child;
+        this.aop=aop;
+        this.afield=afield;
+        this.gfield=gfield;
+
+        //find out type of gfield
+        Type type;
+        if (gfield!=-1){
+            type = child.getTupleDesc().getFieldType(gfield);
+        } else {
+            type = null;
+        }
+
+        //instantiate aggregator according to type
+        if(child.getTupleDesc().getFieldType(afield) == Type.INT_TYPE){
+            this.aggregator = new IntegerAggregator(gfield,type,afield,aop);
+        } else {
+            this.aggregator = new StringAggregator(gfield,type,afield,aop);
+        }
+
+        //load information
+        try {
+            child.open();
+            while (child.hasNext())
+                aggregator.mergeTupleIntoGroup(child.next());
+        } catch (DbException e) {
+            e.printStackTrace();
+        } catch (TransactionAbortedException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -53,7 +89,11 @@ public class Aggregate extends Operator {
      * {@link Aggregator#NO_GROUPING}
      */
     public int groupField() {
-        throw new UnsupportedOperationException("implement me!");
+        if(gfield==-1){
+            return Aggregator.NO_GROUPING;
+        } else {
+            return gfield;
+        }
     }
 
     /**
@@ -62,14 +102,18 @@ public class Aggregate extends Operator {
      * null;
      */
     public String groupFieldName() {
-        throw new UnsupportedOperationException("implement me!");
+        if(gfield==-1){
+            return null;
+        } else {
+            return child.getTupleDesc().getFieldName(gfield);
+        }
     }
 
     /**
      * @return the aggregate field
      */
     public int aggregateField() {
-        throw new UnsupportedOperationException("implement me!");
+        return afield;
     }
 
     /**
@@ -77,28 +121,29 @@ public class Aggregate extends Operator {
      * tuples
      */
     public String aggregateFieldName() {
-        throw new UnsupportedOperationException("implement me!");
+        return child.getTupleDesc().getFieldName(afield);
     }
 
     /**
      * @return return the aggregate operator
      */
     public Aggregator.Op aggregateOp() {
-        throw new UnsupportedOperationException("implement me!");
+        return aop;
     }
 
     public static String nameOfAggregatorOp(Aggregator.Op aop) {
-        throw new UnsupportedOperationException("implement me!");
+        return aop.toString();
     }
 
     public void open() throws NoSuchElementException, DbException,
             TransactionAbortedException {
-        throw new UnsupportedOperationException("implement me!");
+        aIterator = aggregator.iterator();
+        aIterator.open();
     }
 
     @Override
     public boolean hasNext() throws DbException, TransactionAbortedException {
-        throw new UnsupportedOperationException("implement me!");
+        return aIterator.hasNext();
     }
 
     /**
@@ -111,11 +156,15 @@ public class Aggregate extends Operator {
     @Override
     public Tuple next() throws DbException, TransactionAbortedException,
             NoSuchElementException {
-        throw new UnsupportedOperationException("implement me!");
+        if (aIterator.hasNext()){
+            return aIterator.next();
+        } else {
+            throw new NoSuchElementException("No more tuples in the Aggregator Iterator!");
+        }
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        throw new UnsupportedOperationException("implement me!");
+        aIterator.rewind();
     }
 
     /**
@@ -130,21 +179,33 @@ public class Aggregate extends Operator {
      * iterator.
      */
     public TupleDesc getTupleDesc() {
-        throw new UnsupportedOperationException("implement me!");
+        if (gfield != -1) {
+            Type gbType = child.getTupleDesc().getFieldType(gfield);
+            Type[] typeAr = new Type[]{Type.INT_TYPE, gbType};
+            return new TupleDesc(typeAr);
+        } else {
+            String aggName = aop.toString() + child.getTupleDesc().getFieldType(afield);
+            Type[] typeAr= new Type[]{Type.INT_TYPE};
+            String[] stringAr = new String[]{aggName};
+            return new TupleDesc(typeAr, stringAr);
+        }
     }
 
     public void close() {
-        throw new UnsupportedOperationException("implement me!");
+        aIterator.close();
     }
 
     @Override
     public DbIterator[] getChildren() {
-        throw new UnsupportedOperationException("implement me!");
+        return new DbIterator[]{this.child};
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        throw new UnsupportedOperationException("implement me!");
+        if (children.length != 1) {
+            throw new DbException("Expected only one child!");
+        }
+        child = children[0];
     }
 
 }
