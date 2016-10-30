@@ -71,7 +71,7 @@ public class IntegerAggregator implements Aggregator {
      */
     public DbIterator iterator() {
         aggregateFields.initializeList();
-        TupleIterator tupleIterator= new TupleIterator(aggregateFields.getTupleDesc(),aggregateFields.result);
+        TupleIterator tupleIterator= new TupleIterator(aggregateFields.getTupleDesc(),aggregateFields.getResult());
         return tupleIterator;
     }
 
@@ -205,6 +205,10 @@ public class IntegerAggregator implements Aggregator {
             }else {
                 return new TupleDesc(new Type[]{Type.INT_TYPE});
             }
+        }
+
+        public List<Tuple> getResult(){
+            return result;
         }
     }
 

@@ -77,10 +77,12 @@ public class Aggregate extends Operator {
             while (child.hasNext())
                 aggregator.mergeTupleIntoGroup(child.next());
         } catch (DbException e) {
-            e.printStackTrace();
+            throw new DbException("Error in loading information in Aggregate!");
         } catch (TransactionAbortedException e) {
             e.printStackTrace();
         }
+
+        aIterator = aggregator.iterator();
     }
 
     /**
@@ -137,7 +139,6 @@ public class Aggregate extends Operator {
 
     public void open() throws NoSuchElementException, DbException,
             TransactionAbortedException {
-        aIterator = aggregator.iterator();
         aIterator.open();
     }
 

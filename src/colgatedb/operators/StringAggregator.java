@@ -53,8 +53,7 @@ public class StringAggregator implements Aggregator {
     public void mergeTupleIntoGroup(Tuple tup) {
         if(gbfieldtype==null){
             aggregateFields.incrementCount();
-        }
-        else{
+        } else {
             aggregateFields.addTuple(tup);
         }
     }
@@ -69,7 +68,7 @@ public class StringAggregator implements Aggregator {
      */
     public DbIterator iterator(){
         aggregateFields.initializeList();
-        TupleIterator tupleIterator= new TupleIterator(aggregateFields.getTupleDesc(),aggregateFields.result);
+        TupleIterator tupleIterator= new TupleIterator(aggregateFields.getTupleDesc(),aggregateFields.getResult());
         return tupleIterator;
     }
 
@@ -97,11 +96,7 @@ public class StringAggregator implements Aggregator {
             Field gbKey = tup.getField(gbfield);
             if(tempVal.containsKey(gbKey)) {
                 int tempCount  = tempVal.get(gbKey);
-                switch (operand) {
-                    case COUNT:
-                        tempVal.put(gbKey,++tempCount);
-
-                }
+                tempVal.put(gbKey,++tempCount);
             }else{
                 tempVal.put(gbKey,1);
             }
@@ -128,6 +123,10 @@ public class StringAggregator implements Aggregator {
             }else {
                 return new TupleDesc(new Type[]{Type.INT_TYPE});
             }
+        }
+
+        public List<Tuple> getResult(){
+            return result;
         }
     }
 }
