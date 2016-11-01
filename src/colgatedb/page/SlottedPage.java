@@ -230,26 +230,24 @@ public class SlottedPage implements Page {
         if (t.getRecordId()==null){
             throw new PageException("This tuple does not have a record ID!");
         }
-        else if (t.getRecordId().getPageId()!=this.pid){
+        else if (!t.getRecordId().getPageId().equals(this.pid)){
             throw new PageException("This tuple is not on this page!");
         }
         else if (getNumEmptySlots()==getNumSlots()){
             throw new PageException("All tuple slots are empty!");
         }
         else{
-            Iterator<Tuple> tupleIterator=this.iterator();
-            while(tupleIterator.hasNext()){
-                Tuple nextTuple= tupleIterator.next();
-                if (nextTuple.equals(t)){
-                    int i= java.util.Arrays.asList(tuples).indexOf(nextTuple);
-                    tuples[i].setRecordId(null);
-                    tuples[i]=null;
-                    return;
-                }
+            int i=t.getRecordId().tupleno();
+            if (tuples[i]!=null){
+                tuples[i].setRecordId(null);
+                tuples[i]=null;
+                return;
+            }else{
+                throw new PageException("The tuple slot is already empty!");
             }
-            throw new PageException("The tuple slot is already empty!");
         }
     }
+
 
     /**
      * Creates an iterator over the (non-empty) slots of the page.

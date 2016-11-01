@@ -43,6 +43,9 @@ public class HeapFile implements DbFile {
     private int pageSize;
     private int tableid;
     private int numPages;
+    private boolean nextSamePage;
+    private boolean work;
+    private Tuple current;
     /**
      * Creates a heap file.
      * @param td the schema for records stored in this heapfile
@@ -56,6 +59,9 @@ public class HeapFile implements DbFile {
         this.tableid=tableid;
         this.numPages=numPages;
         this.pageMaker=new SlottedPageMaker(td,pageSize);
+        this.current=null;
+        this.nextSamePage=false;
+        this.work=true;
     }
 
     /**
@@ -174,11 +180,17 @@ public class HeapFile implements DbFile {
 
         @Override
         public boolean hasNext() throws TransactionAbortedException {
-            Iterator<Tuple> pageIteratorCurrent= pageIterator;
+            //Iterator<Tuple> pageIteratorCurrent= pageIterator;
             if (pageIterator == null|| !isOpened) { //return false if not open
                 return false;
-            } else if (pageIterator.hasNext()) //return true if next is in the same page
+            } else if (!work){
                 return true;
+            } else if (pageIterator.hasNext()){ //return true if next is in the same page
+                work=false;
+                current=pageIterator.next();
+                return true;
+            }
+
             if (currentPage >= numPages()) { //return false if reaching end of all pages
                 return false;
             } else { //try to find next in the next page
@@ -186,18 +198,18 @@ public class HeapFile implements DbFile {
                 unpinPageUsedbyIterator(currentPage);
                 pageNum++;
                 while (pageNum < numPages()) {
-                    Iterator<Tuple> iter = getPageIterator(pageNum);
-                    if (iter.hasNext()) {
-                        unpinPageUsedbyIterator(pageNum);
-                        getPageIterator(currentPage);
-                        this.pageIterator=pageIteratorCurrent;
+                    pageIterator = getPageIterator(pageNum);
+                    if (pageIterator.hasNext()) {
+                        current=pageIterator.next();
+                        work=false;
+                        currentPage=pageNum;
                         return true;
                     }
                     unpinPageUsedbyIterator(pageNum);
                     pageNum++;
                 }
-                getPageIterator(currentPage);
-                this.pageIterator=pageIteratorCurrent;
+                currentPage=pageNum-1;
+                //pageIterator = getPageIterator(currentPage);
                 return false;
             }
         }
@@ -207,27 +219,15 @@ public class HeapFile implements DbFile {
             if (!hasNext() || !isOpened) //return false if not open
                 throw new NoSuchElementException("There is no more tuple in the heap file!");
             else {
-                if (pageIterator.hasNext()) //return next if it is in the same page
-                    return pageIterator.next();
-                else {  //move on to the next page to find next()
-                    unpinPageUsedbyIterator(currentPage);
-                    currentPage++;
-                    while (currentPage < numPages()) {
-                        pageIterator = getPageIterator(currentPage);
-                        if (pageIterator.hasNext()){ // return next if the new page has next
-                            return pageIterator.next();
-                        }
-                        unpinPageUsedbyIterator(currentPage);
-                        currentPage++;
-                    }
-                }
+                work=true;
+                return current;
             }
-            throw new NoSuchElementException("There is no more tuple in the heap file!");
         }
 
         @Override
         public void rewind() throws TransactionAbortedException {
             close();
+            unpinPageUsedbyIterator(currentPage);
             open();
         }
 
@@ -235,7 +235,7 @@ public class HeapFile implements DbFile {
         public void close() {
             isOpened = false;
             pageIterator = null;
-            unpinPageUsedbyIterator(currentPage);
+            //unpinPageUsedbyIterator(currentPage);
         }
     }
 
