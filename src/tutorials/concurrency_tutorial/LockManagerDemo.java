@@ -86,17 +86,18 @@ public class LockManagerDemo {
                         inUse = true;
                         waiting = false;
                     }
-               }
-               if (waiting) {
-                    try {
-                        Thread.sleep(1);
-                    } catch (InterruptedException ignored) { }
-               }
+                    if (waiting) {
+                        try {
+                            this.wait();
+                        } catch (InterruptedException e) {}
+                    }
+                }
             }
         }
 
         public synchronized void releaseLock() {
             inUse = false;
+            this.notifyAll();
         }
     }
 }

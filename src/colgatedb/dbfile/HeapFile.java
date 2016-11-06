@@ -208,7 +208,7 @@ public class HeapFile implements DbFile {
                     unpinPageUsedbyIterator(pageNum);
                     pageNum++;
                 }
-                currentPage=pageNum-1;
+                currentPage=numPages()-1;
                 //pageIterator = getPageIterator(currentPage);
                 return false;
             }

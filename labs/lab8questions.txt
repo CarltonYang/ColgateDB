@@ -3,26 +3,26 @@ Your name(s):
 Task 1. 
 
 a) Explain how you modified SynchronizedThreads in task 1.
-
+   Added “synchronized” keyword to the declaration of increment() method in counter class.
 
 b) Briefly describe (1-2 sentences) an alternate implementation for task 1.
-
+   I will add a synchronized statement on the counter attribute of Incrementer class inside run() method. Add synchronized(this.counter) over the for loop in run().
 Task 2.
 
 Explain the deadlock that happens in Deadlock in terms of locks and threads 
 waiting on locks. The two threads in this case are alphonse and gaston. 
 
 a) What objects are being locked? 
-
+   Two friend objects, alphonse and gaston are being locked.
 b) Who has what locks? 
-
+   First thread, which is running alphonse.bow(gaston) has lock of alphonse. Similarly, second thread, which is running gaston.bow(alphonse), has lock of gaston.
 c) How does deadlock occur?
-
+   When thread1 executes gaston.bowBack(alphonse), it tries to acquire lock of gaston, which is held by thread2. Similarly, When thread1 executes alphonse.bowBack(gaston), it tries to acquire lock of alphonse, which is held by thread1. So both of them are waiting for the other lock to release the lock to proceed.
 d) Return to task 1, can deadlock occur here?  Explain why or why not.
-
+   It is not possible because in task 1, there is no dependence on another lock or object in order to proceed in the synchronized method.
 Task 3. 
 
 Explain why acquireLock uses a synchronized statement inside the body of the 
 method. In other words, why not just make the acquireLock method synchronized, 
 just like releaseLock? Will this work? Why or why not?
-	
+   This will not work. Using only synchronized method over acquirelock() method we are locking the object, which means we can be certain that at any given time there are at most one acquirelock() has access to the object. However, there is a serious issue when the first thread is done with acquirelock and another thread calls acquire lock before thread 1 can release it. Since now the object is synchronized and it is locked by another thread, thread1 can not release the object. However, the other thread can not move forward because the real lock has not been unlocked by thread1. Then we will have a dead lock.
