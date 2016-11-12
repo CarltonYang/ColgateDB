@@ -1,5 +1,7 @@
 package colgatedb.transactions;
 
+import colgatedb.page.Page;
+
 import java.util.*;
 
 /**
@@ -35,7 +37,72 @@ public class LockTableEntry {
     }
 
     // you may wish to implement methods here.
+    public synchronized boolean matchLockType(Permissions perm){
+        if (lockType ==null){
+            return false;
+        }
 
+        if (lockType == Permissions.READ_WRITE && perm!=null){
+            return true;
+        } else if (lockType == Permissions.READ_ONLY){
+            return perm==Permissions.READ_ONLY;
+        }
+        return false;
+    }
+
+    public synchronized boolean containsTid(TransactionId tid){
+        return lockHolders.contains(tid);
+    }
+
+    public synchronized boolean isNotLocked(TransactionId tid, Permissions perm) {
+        LockRequest temp = new LockRequest(tid, perm);
+        if (lockType != Permissions.READ_WRITE && perm == Permissions.READ_ONLY && isNext(temp)) {
+            return true;
+        } else if (perm == Permissions.READ_WRITE && isNext(temp) && lockHolders.isEmpty()) {
+            return true;
+        } else if (isupGrade(tid, perm)) {
+            requests.remove(tid);
+            LockRequest cutline = new LockRequest(tid, perm);
+            requests.add(0,cutline);
+            return true;
+        } else{
+            return false;
+        }
+    }
+
+    private synchronized boolean isupGrade(TransactionId tid, Permissions perm){
+        if (lockHolders.size()==1 && lockHolders.contains(tid) && lockType==Permissions.READ_ONLY && perm== Permissions.READ_WRITE){
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private synchronized boolean isNext(LockRequest lockRequest){
+        return requests.get(0).equals(lockRequest);
+    }
+
+    public synchronized void releaseLock(TransactionId tid){
+        lockHolders.remove(tid);
+        if (lockHolders.isEmpty()){
+            lockType=null;
+        }
+    }
+
+    public synchronized Set<TransactionId> getLockHolders(){
+        return this.lockHolders;
+    }
+
+    public synchronized void addRequest(TransactionId tid, Permissions perm){
+        LockRequest temp = new LockRequest(tid, perm);
+        requests.add(temp);
+    }
+
+    public synchronized void addLockHolder(TransactionId tid, Permissions perm){
+        requests.remove(0);
+        lockHolders.add(tid);
+        lockType = perm;
+    }
     /**
      * A class representing a single lock request.  Simply tracks the txn and the desired lock type.
      * Feel free to use this, modify it, or not use it at all.

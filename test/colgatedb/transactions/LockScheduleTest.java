@@ -25,6 +25,7 @@ public class LockScheduleTest {
     private TransactionId tid1 = new TransactionId();
     private TransactionId tid2 = new TransactionId();
     private TransactionId tid3 = new TransactionId();
+    private TransactionId tid4 = new TransactionId();
     private SimplePageId pid1 = new SimplePageId(0, 1);
     private SimplePageId pid2 = new SimplePageId(0, 2);
     private SimplePageId pid3 = new SimplePageId(0, 3);
@@ -75,5 +76,69 @@ public class LockScheduleTest {
             e.printStackTrace();
         }
         assertTrue(schedule.allStepsCompleted());
+    }
+
+    /**
+     * mutiple share test case:
+     * - T1 has shared lock and T2, T3 also ask for shared lock
+     * - They should all be able to acquire the lock.
+     */
+    @Test
+    public void multipleShareTest() {
+        steps = new Schedule.Step[]{
+                new Schedule.Step(tid1, pid2, Schedule.Action.SHARED),     // t1 requests shared
+                new Schedule.Step(tid1, pid2, Schedule.Action.ACQUIRED),
+                new Schedule.Step(tid2, pid2, Schedule.Action.SHARED),     // t2 requests shared
+                new Schedule.Step(tid2, pid2, Schedule.Action.ACQUIRED),
+                new Schedule.Step(tid3, pid2, Schedule.Action.SHARED),     // t3 requests shared
+                new Schedule.Step(tid3, pid2, Schedule.Action.ACQUIRED)
+        };
+        executeSchedule();
+    }
+
+    /**
+     * mutiple share test case:
+     * - T0 has shared lock and T1 asks for an exlusive lock
+     * - T2 also ask for shared lock
+     * - T2 should not execute before T1 even though it is compatible with the current lock
+     */
+    @Test
+    public void multipleShareTest2() {
+        steps = new Schedule.Step[]{
+                new Schedule.Step(tid0, pid3, Schedule.Action.SHARED),     // t1 requests shared
+                new Schedule.Step(tid0, pid3, Schedule.Action.ACQUIRED),
+                new Schedule.Step(tid1, pid3, Schedule.Action.EXCLUSIVE),  // t2 waiting for exclusive
+                new Schedule.Step(tid2, pid3, Schedule.Action.SHARED),     // t3 requests shared
+                new Schedule.Step(tid0, pid3, Schedule.Action.UNLOCK),
+                new Schedule.Step(tid1, pid3, Schedule.Action.ACQUIRED),
+                new Schedule.Step(tid1, pid3, Schedule.Action.UNLOCK),
+                new Schedule.Step(tid2, pid3, Schedule.Action.ACQUIRED)
+        };
+        executeSchedule();
+    }
+
+    /**
+     * mutiple share test case:
+     * - T0 has shared lock and T1 both have shared lock,
+     * - then T0 asks for updating to an exclusive lock
+     * - T2 also ask for an exclusive lock
+     * - T0 should not get lock before T1 unlocks. And T2 should only get lock after T1 in done with it.
+     */
+    @Test
+    public void multipleShareTest3() {
+        steps = new Schedule.Step[]{
+
+                new Schedule.Step(tid0, pid1, Schedule.Action.SHARED),     // t0 requests shared
+                new Schedule.Step(tid0, pid1, Schedule.Action.ACQUIRED),
+                new Schedule.Step(tid1, pid1, Schedule.Action.SHARED),     // t0 requests shared
+                new Schedule.Step(tid1, pid1, Schedule.Action.ACQUIRED),
+                new Schedule.Step(tid2, pid1, Schedule.Action.EXCLUSIVE),  // t2 waiting for exclusive
+                new Schedule.Step(tid0, pid1, Schedule.Action.EXCLUSIVE),  // t0 requests upgrade, can not acquire lock before T1 releases
+                new Schedule.Step(tid1, pid1, Schedule.Action.UNLOCK),
+                new Schedule.Step(tid0, pid1, Schedule.Action.ACQUIRED),   // t0 gets exclusive ahead of t2, cutting the line
+                new Schedule.Step(tid0, pid1, Schedule.Action.UNLOCK),
+                new Schedule.Step(tid2, pid1, Schedule.Action.ACQUIRED)    // now t2 can get exclusive
+        };
+        executeSchedule();
     }
 }
