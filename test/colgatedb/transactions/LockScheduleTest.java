@@ -141,4 +141,22 @@ public class LockScheduleTest {
         };
         executeSchedule();
     }
+
+    @Test
+    public void multipleShareTest4() {
+        steps = new Schedule.Step[]{
+
+                new Schedule.Step(tid0, pid1, Schedule.Action.EXCLUSIVE),     // t0 requests shared
+                new Schedule.Step(tid0, pid1, Schedule.Action.ACQUIRED),
+                new Schedule.Step(tid1, pid1, Schedule.Action.SHARED),     // t0 requests shared
+                new Schedule.Step(tid2, pid1, Schedule.Action.SHARED),  // t2 waiting for exclusive
+                new Schedule.Step(tid3, pid1, Schedule.Action.SHARED),  // t0 requests upgrade, can not acquire lock before T1 releases
+                new Schedule.Step(tid0, pid1, Schedule.Action.UNLOCK),
+                new Schedule.AcquiredStep(tid1, pid1),
+                new Schedule.AcquiredStep(tid2, pid1,5 ),
+                new Schedule.AcquiredStep(tid3, pid1,5 )
+
+        };
+        executeSchedule();
+    }
 }

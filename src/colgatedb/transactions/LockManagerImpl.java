@@ -2,9 +2,11 @@ package colgatedb.transactions;
 
 import colgatedb.page.PageId;
 import colgatedb.page.SimplePageId;
+import com.sun.tools.internal.xjc.reader.gbind.Graph;
 
 import java.util.*;
-import java.util.concurrent.locks.Lock;
+
+
 
 /**
  * ColgateDB
@@ -55,6 +57,9 @@ public class LockManagerImpl implements LockManager {
                     } catch (InterruptedException e) {}
                 }
             }
+        }
+        synchronized (this){
+            this.notifyAll();
         }
     }
 
