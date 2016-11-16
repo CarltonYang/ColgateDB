@@ -5,6 +5,7 @@ import colgatedb.BufferManager;
 import colgatedb.Database;
 import colgatedb.DbException;
 import colgatedb.page.*;
+import colgatedb.transactions.Permissions;
 import colgatedb.transactions.TransactionAbortedException;
 import colgatedb.transactions.TransactionId;
 import colgatedb.tuple.Tuple;
@@ -88,13 +89,16 @@ public class HeapFile implements DbFile {
      */
     private SlottedPage getFreePage(TransactionId tid) throws TransactionAbortedException{
         AccessManager accessManager= Database.getAccessManager();
+
         for (int i = 0; i < this.numPages; i++) {
             PageId pid = new SimplePageId(this.tableid, i);
+            accessManager.acquireLock(tid, pid, Permissions.READ_ONLY);
             SlottedPage page = (SlottedPage) accessManager.pinPage(tid, pid,this.pageMaker);
             if (page.getNumEmptySlots() > 0) {
                 return page;
             }
             accessManager.unpinPage(tid, page, false);
+            accessManager.releaseLock(tid, pid);
         }
         SimplePageId pid = new SimplePageId(tableid, numPages);
         accessManager.allocatePage(pid);

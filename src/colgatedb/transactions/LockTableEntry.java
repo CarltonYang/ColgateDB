@@ -59,7 +59,7 @@ public class LockTableEntry {
         LockRequest temp = new LockRequest(tid, perm);
         if (lockType != Permissions.READ_WRITE && perm == Permissions.READ_ONLY && isNext(temp)) {
             return true;
-        } else if (perm == Permissions.READ_WRITE && isNext(temp) && lockHolders.isEmpty()) {
+        } else if (perm == Permissions.READ_WRITE && isNext(temp) && exclusiveAvailable(tid)) {
             return true;
         } else if (isupGrade(tid, perm)) {
             requests.remove(tid);
@@ -69,6 +69,16 @@ public class LockTableEntry {
         } else{
             return false;
         }
+    }
+
+    /*
+     *   check if this exclusive lock request can be granted
+     */
+    private synchronized boolean exclusiveAvailable(TransactionId tid){
+        //if there is no lock holder or there is only one lock holder which is the same as this request,
+        //grant the lock
+        return (lockHolders.isEmpty()|| (lockHolders.size()==1)
+                &&lockHolders.contains(tid) && lockType==Permissions.READ_WRITE);
     }
 
     /*

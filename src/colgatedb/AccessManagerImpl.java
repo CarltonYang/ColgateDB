@@ -96,12 +96,13 @@ public class AccessManagerImpl implements AccessManager {
             Iterator<PageId> pageIdList = lockManager.getPagesForTid(tid).iterator();
             while (pageIdList.hasNext()) {
                 PageId pid = pageIdList.next();
+                if (bufferManager.inBufferPool(pid)) {
                 if (commit) {
-                    bufferManager.flushPage(pid);
+                    if (bufferManager.isDirty(pid)){bufferManager.flushPage(pid);}
                     bufferManager.getPage(pid).setBeforeImage();
                     //}
                 } else {
-                    if (bufferManager.inBufferPool(pid)) {
+
                         if (bufferManager.isDirty(pid)){
                             bufferManager.discardPage(pid);
                         } else {
@@ -109,8 +110,10 @@ public class AccessManagerImpl implements AccessManager {
                         }
                     }
                 }
+                releaseLock(tid, pid);
             }
         }
+
     }
 
 
