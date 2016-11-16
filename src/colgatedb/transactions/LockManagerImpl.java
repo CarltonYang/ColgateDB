@@ -5,7 +5,7 @@ import colgatedb.page.SimplePageId;
 import com.sun.tools.internal.xjc.reader.gbind.Graph;
 
 import java.util.*;
-
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -24,20 +24,37 @@ import java.util.*;
  */
 public class LockManagerImpl implements LockManager {
 
-    private HashMap<PageId,LockTableEntry> HLTE;
-    private HashMap<TransactionId, List<PageId>> HTP;
+    private HashMap<PageId,LockTableEntry> HLTE; //one locktableentry for each page
+    private HashMap<TransactionId, List<PageId>> HTP; //each txn has a list of pid that this txn locks
+    private WFGraph wfGraph; //wait for graph for deadlock detection
 
     public LockManagerImpl() {
         HLTE = new HashMap<PageId, LockTableEntry>();
         HTP = new HashMap<TransactionId, List<PageId>>();
+        wfGraph = new WFGraph();
+    }
+
+    /*
+     *  helper function to help initialize LockTableEntry Hashmap and WFGraph
+     *  if necessary
+     */
+    private void initialize(PageId pid, TransactionId tid){
+        synchronized (this.HLTE){
+            if (!HLTE.containsKey(pid)){
+                HLTE.put(pid,  new LockTableEntry());
+            }
+        }
+        synchronized (this.wfGraph){
+            if (!wfGraph.containsTid(tid)){
+                wfGraph.addTid(tid, new HashSet<TransactionId>());
+            }
+        }
     }
 
     @Override
     public void acquireLock(TransactionId tid, PageId pid, Permissions perm) throws TransactionAbortedException {
-        if (!HLTE.containsKey(pid)){
-            LockTableEntry temp = new LockTableEntry();
-            HLTE.put(pid, temp);
-        }
+
+        initialize(pid, tid);
         LockTableEntry current = HLTE.get(pid);
         current.addRequest(tid,perm);
 
@@ -50,16 +67,26 @@ public class LockManagerImpl implements LockManager {
                     waiting = false;
                     current.addLockHolder(tid, perm);
                     addPid(tid, pid);
+                    wfGraph.removeTid(tid);
                 }
                 if (waiting) {
                     try {
+                        wfGraph.addTid(tid, current.getLockHolders());
+                        //delete itself from the dependency group, this may happen from upgrading the lock
+                        wfGraph.removeDependency(tid);
+                        if (wfGraph.hasCircle(tid)){
+                            wfGraph.print();
+                            current.removeRequest(tid, perm);
+                            wfGraph.removeTid(tid);
+                            throw new TransactionAbortedException();
+                        }
                         this.wait();
                     } catch (InterruptedException e) {}
                 }
             }
         }
         synchronized (this){
-            this.notifyAll();
+            this.notifyAll(); //to make sure multiple sharedlock can acquire at the same time
         }
     }
 
@@ -105,14 +132,111 @@ public class LockManagerImpl implements LockManager {
     }
 
     private synchronized void addPid(TransactionId tid, PageId pid){
+        List<PageId> newAdd = new LinkedList<PageId>();
         if (HTP.containsKey(tid)){
-            List<PageId> temp= HTP.get(tid);
-            temp.add(pid);
-            HTP.put(tid,temp);
-        } else {
-            List<PageId> newAdd = new LinkedList<PageId>();
-            newAdd.add(pid);
-            HTP.put(tid, newAdd);
+            newAdd= HTP.get(tid);
+        }
+        newAdd.add(pid);
+        HTP.put(tid, newAdd);
+    }
+
+    private class WFGraph{
+        /*
+         *  private class used for deadlock detection
+         */
+        private HashMap<TransactionId, HashSet<TransactionId>> dependencyMap;
+
+        public WFGraph(){
+            dependencyMap = new HashMap<TransactionId, HashSet<TransactionId>>();
+        }
+
+        public synchronized void addTid(TransactionId tid, HashSet<TransactionId> dependencyTid){
+            if (dependencyMap.containsKey(tid)){
+                dependencyMap.get(tid).addAll(dependencyTid);
+            } else{
+                dependencyMap.put(tid, dependencyTid);
+            }
+        }
+
+        public synchronized void removeTid(TransactionId tid){
+            dependencyMap.remove(tid);
+        }
+
+        public synchronized void removeDependency(TransactionId tid){
+            dependencyMap.get(tid).remove(tid);
+        }
+
+        public synchronized boolean containsTid(TransactionId tid){
+            return dependencyMap.containsKey(tid);
+        }
+
+        // BFS to detect circle
+        /*public synchronized boolean hasCircle(TransactionId tid){
+            HashSet<TransactionId> visited = new HashSet<TransactionId>();
+            LinkedList<TransactionId> queue = new LinkedList<TransactionId>();
+            queue.add(tid);
+
+            while (!(queue.isEmpty())) {
+                TransactionId current = queue.remove();
+                if (visited.contains(current)) {
+                    return true;
+                }
+                visited.add(current);
+
+                if (dependencyMap.containsKey(current) && !(dependencyMap.get(current).isEmpty())) {
+                    Iterator<TransactionId> it = this.dependencyMap.get(current).iterator();
+                    while (it.hasNext()) {
+                        queue.add(it.next());
+                    }
+                }
+            }
+            return false;
+        }*/
+
+        // DFS to detect circle
+        public synchronized boolean hasCircle(TransactionId tid2){
+            HashSet<TransactionId> visited = new HashSet<TransactionId>();
+            LinkedList<TransactionId> queue = new LinkedList<TransactionId>();
+            for(TransactionId tid : dependencyMap.keySet()) {
+                if(hasCircleHelper(visited,queue,tid))
+                    return true;
+            }
+            return false;
+        }
+
+        private synchronized boolean hasCircleHelper(HashSet<TransactionId> visited,
+                                                     LinkedList<TransactionId> queue,
+                                                     TransactionId tid){
+            HashSet<TransactionId> tempvisited= new HashSet<TransactionId>();
+            if(!visited.contains(tid)) {
+                tempvisited.add(tid);
+                queue.add(tid);
+                //for all adjacent vertices
+                HashSet<TransactionId> temp= dependencyMap.get(tid);
+                if (temp==null){
+                    return false;
+                }
+                for(TransactionId txnId:temp) {
+                    //if the adjacent node is not visited yet
+                    if(!visited.contains(txnId)) {
+                        tempvisited.addAll(visited);
+                        if(hasCircleHelper(tempvisited, queue, txnId))
+                            return true;
+                    } else if(queue.contains(txnId)){
+                        return true;
+                    }
+                }
+            }
+            queue.remove(tid);
+            return false;
+        }
+
+        public synchronized void print(){
+            for (TransactionId name: dependencyMap.keySet()){
+                String key =name.toString();
+                String value = dependencyMap.get(name).toString();
+                System.out.println(key + " " + value);
+            }
         }
     }
 

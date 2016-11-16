@@ -38,7 +38,7 @@ public class ConcurrencyControlTest {
 
     @Test
     public void runTwoThreads() throws TransactionAbortedException, InterruptedException {
-        int numThreads = 2;
+        int numThreads = 4;
         int numAdds = 10;
         executeConcurrentThreads(numThreads, numAdds);
     }

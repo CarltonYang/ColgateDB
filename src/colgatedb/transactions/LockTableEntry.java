@@ -26,7 +26,7 @@ public class LockTableEntry {
 
     // some suggested private instance variables; feel free to modify
     private Permissions lockType;             // null if no one currently has a lock
-    private Set<TransactionId> lockHolders;   // a set of txns currently holding a lock on this page
+    private HashSet<TransactionId> lockHolders;   // a set of txns currently holding a lock on this page
     private List<LockRequest> requests;       // a queue of outstanding requests
 
     public LockTableEntry() {
@@ -36,9 +36,11 @@ public class LockTableEntry {
         // you may wish to add statements here.
     }
 
-    // you may wish to implement methods here.
+    /*
+     *   check if two permissions match
+     */
     public synchronized boolean matchLockType(Permissions perm){
-        if (lockType ==null){
+        if (lockType == null){
             return false;
         }
 
@@ -50,10 +52,9 @@ public class LockTableEntry {
         return false;
     }
 
-    public synchronized boolean containsTid(TransactionId tid){
-        return lockHolders.contains(tid);
-    }
-
+    /*
+     *   check if this page is locked
+     */
     public synchronized boolean isNotLocked(TransactionId tid, Permissions perm) {
         LockRequest temp = new LockRequest(tid, perm);
         if (lockType != Permissions.READ_WRITE && perm == Permissions.READ_ONLY && isNext(temp)) {
@@ -70,12 +71,19 @@ public class LockTableEntry {
         }
     }
 
+    /*
+     *   check if this request is an upgrade of a previous shared lock
+     */
     private synchronized boolean isupGrade(TransactionId tid, Permissions perm){
         if (lockHolders.size()==1 && lockHolders.contains(tid) && lockType==Permissions.READ_ONLY && perm== Permissions.READ_WRITE){
             return true;
         } else {
             return false;
         }
+    }
+
+    public synchronized boolean containsTid(TransactionId tid){
+        return lockHolders.contains(tid);
     }
 
     private synchronized boolean isNext(LockRequest lockRequest){
@@ -89,7 +97,13 @@ public class LockTableEntry {
         }
     }
 
-    public synchronized Set<TransactionId> getLockHolders(){
+    public synchronized void addLockHolder(TransactionId tid, Permissions perm){
+        requests.remove(new LockRequest(tid, perm));
+        lockHolders.add(tid);
+        lockType = perm;
+    }
+
+    public synchronized HashSet<TransactionId> getLockHolders(){
         return this.lockHolders;
     }
 
@@ -98,10 +112,9 @@ public class LockTableEntry {
         requests.add(temp);
     }
 
-    public synchronized void addLockHolder(TransactionId tid, Permissions perm){
-        requests.remove(0);
-        lockHolders.add(tid);
-        lockType = perm;
+    public synchronized void removeRequest(TransactionId tid, Permissions perm){
+        LockRequest temp = new LockRequest(tid, perm);
+        requests.remove(temp);
     }
     /**
      * A class representing a single lock request.  Simply tracks the txn and the desired lock type.

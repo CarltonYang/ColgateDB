@@ -3,12 +3,10 @@ package colgatedb;
 import colgatedb.page.Page;
 import colgatedb.page.PageId;
 import colgatedb.page.PageMaker;
+import colgatedb.page.SlottedPage;
 import colgatedb.transactions.*;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * ColgateDB
@@ -28,43 +26,61 @@ import java.util.Map;
 public class AccessManagerImpl implements AccessManager {
 
     private boolean force = true;  // indicates whether force policy should be used
-
+    private HashMap<TransactionId, List<PageId>> txnRecord;
+    private LockManagerImpl lockManager;
+    private BufferManager bufferManager;
     /**
      * Initialize the AccessManager, which includes creating a new LockManager.
      * @param bm buffer manager through which all page requests should be made
      */
     public AccessManagerImpl(BufferManager bm) {
-        throw new UnsupportedOperationException("implement me!");
+        lockManager= new LockManagerImpl();
+        txnRecord= new HashMap<TransactionId, List<PageId>>();
+        bufferManager=bm;
+        bm.evictDirty(false);
     }
 
     @Override
     public void acquireLock(TransactionId tid, PageId pid, Permissions perm) throws TransactionAbortedException {
-        throw new UnsupportedOperationException("implement me!");
+        lockManager.acquireLock(tid, pid, perm);
     }
 
     @Override
     public boolean holdsLock(TransactionId tid, PageId pid, Permissions perm) {
-        throw new UnsupportedOperationException("implement me!");
+        return lockManager.holdsLock(tid,pid,perm);
     }
 
     @Override
     public void releaseLock(TransactionId tid, PageId pid) {
-        throw new UnsupportedOperationException("implement me!");
+        lockManager.releaseLock(tid, pid);
     }
 
     @Override
     public Page pinPage(TransactionId tid, PageId pid, PageMaker pageMaker) {
-        throw new UnsupportedOperationException("implement me!");
+        synchronized (this.txnRecord) {
+            if (txnRecord.containsKey(tid)) {
+                txnRecord.get(tid).add(pid);
+            } else {
+                LinkedList<PageId> temp = new LinkedList<PageId>();
+                temp.add(pid);
+                txnRecord.put(tid, temp);
+            }
+        }
+        Page pinnedPage = bufferManager.pinPage(pid, pageMaker);
+        return pinnedPage;
     }
 
     @Override
     public void unpinPage(TransactionId tid, Page page, boolean isDirty) {
-        throw new UnsupportedOperationException("implement me!");
+        synchronized (this.txnRecord) {
+            txnRecord.get(tid).remove(page.getId());
+        }
+        bufferManager.unpinPage(page.getId(),isDirty);
     }
 
     @Override
     public void allocatePage(PageId pid) {
-        throw new UnsupportedOperationException("implement me!");
+        bufferManager.allocatePage(pid);
     }
 
     @Override
@@ -74,12 +90,33 @@ public class AccessManagerImpl implements AccessManager {
 
     @Override
     public void transactionComplete(TransactionId tid, boolean commit) {
-        throw new UnsupportedOperationException("implement me!");
+        if (lockManager.getPagesForTid(tid) == null) {
+            return;
+        } else {
+            Iterator<PageId> pageIdList = lockManager.getPagesForTid(tid).iterator();
+            while (pageIdList.hasNext()) {
+                PageId pid = pageIdList.next();
+                if (commit) {
+                    bufferManager.flushPage(pid);
+                    bufferManager.getPage(pid).setBeforeImage();
+                    //}
+                } else {
+                    if (bufferManager.inBufferPool(pid)) {
+                        if (bufferManager.isDirty(pid)){
+                            bufferManager.discardPage(pid);
+                        } else {
+                            bufferManager.unpinPage(pid,false);
+                        }
+                    }
+                }
+            }
+        }
     }
+
 
     @Override
     public void setForce(boolean force) {
         // you do NOT need to implement this for lab10.  this will be changed in a later lab.
-        throw new UnsupportedOperationException("implement me!");
+        this.force=force;
     }
 }

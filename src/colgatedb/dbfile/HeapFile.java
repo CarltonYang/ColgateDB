@@ -1,5 +1,6 @@
 package colgatedb.dbfile;
 
+import colgatedb.AccessManager;
 import colgatedb.BufferManager;
 import colgatedb.Database;
 import colgatedb.DbException;
@@ -86,29 +87,29 @@ public class HeapFile implements DbFile {
      * page and returns it
      */
     private SlottedPage getFreePage(TransactionId tid) throws TransactionAbortedException{
-        BufferManager buf= Database.getBufferManager();
+        AccessManager accessManager= Database.getAccessManager();
         for (int i = 0; i < this.numPages; i++) {
             PageId pid = new SimplePageId(this.tableid, i);
-            SlottedPage page = (SlottedPage) buf.pinPage(pid,this.pageMaker);
+            SlottedPage page = (SlottedPage) accessManager.pinPage(tid, pid,this.pageMaker);
             if (page.getNumEmptySlots() > 0) {
                 return page;
             }
-            buf.unpinPage(pid,false);
+            accessManager.unpinPage(tid, page, false);
         }
         SimplePageId pid = new SimplePageId(tableid, numPages);
-        buf.allocatePage(pid);
+        accessManager.allocatePage(pid);
         this.numPages++;
-        SlottedPage page = (SlottedPage) buf.pinPage(pid,this.pageMaker);
+        SlottedPage page = (SlottedPage) accessManager.pinPage(tid, pid,this.pageMaker);
         return page;
     }
 
     @Override
     public void insertTuple(TransactionId tid, Tuple t) throws TransactionAbortedException {
-        BufferManager buf= Database.getBufferManager();
+        AccessManager accessManager= Database.getAccessManager();
         SlottedPage newPage= getFreePage(tid);
         newPage.insertTuple(t);
-        PageId pid= newPage.getId();
-        buf.unpinPage(pid,true);//pinpage called inside getFreePage(), inserted a page -> dirty;
+        //PageId pid= newPage.getId();
+        accessManager.unpinPage(tid, newPage,true);//pinpage called inside getFreePage(), inserted a page -> dirty;
     }
 
 
@@ -127,9 +128,9 @@ public class HeapFile implements DbFile {
         }
         else{
             PageId pid= t.getRecordId().getPageId();
-            SlottedPage pagewithTuple= (SlottedPage) Database.getBufferManager().pinPage(pid,this.pageMaker);
+            SlottedPage pagewithTuple= (SlottedPage) Database.getAccessManager().pinPage(tid, pid,this.pageMaker);
             pagewithTuple.deleteTuple(t);
-            Database.getBufferManager().unpinPage(pid,true);//deleted a page -> dirty
+            Database.getAccessManager().unpinPage(tid, pagewithTuple,true);//deleted a page -> dirty
         }
     }
 
@@ -166,7 +167,7 @@ public class HeapFile implements DbFile {
          */
         private Iterator<Tuple> getPageIterator(int currentPage) throws TransactionAbortedException, DbException {
             SimplePageId pid = new SimplePageId(tableid, currentPage);
-            SlottedPage page = (SlottedPage) Database.getBufferManager().pinPage(pid,pageMaker);
+            SlottedPage page = (SlottedPage) Database.getAccessManager().pinPage(tid, pid,pageMaker);
             return page.iterator();
         }
 
@@ -175,7 +176,8 @@ public class HeapFile implements DbFile {
          */
         private void unpinPageUsedbyIterator(int pageNum){
             SimplePageId pid = new SimplePageId(tableid, pageNum);
-            Database.getBufferManager().unpinPage(pid,false);
+            Page temp = Database.getBufferManager().getPage(pid);
+            Database.getAccessManager().unpinPage(tid, temp,false);
         }
 
         @Override
