@@ -25,12 +25,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LockManagerImpl implements LockManager {
 
     private HashMap<PageId,LockTableEntry> HLTE; //one locktableentry for each page
-    private HashMap<TransactionId, List<PageId>> HTP; //each txn has a list of pid that this txn locks
+    private HashMap<TransactionId, HashSet<PageId>> HTP; //each txn has a list of pid that this txn locks
     private WFGraph wfGraph; //wait for graph for deadlock detection
 
     public LockManagerImpl() {
         HLTE = new HashMap<PageId, LockTableEntry>();
-        HTP = new HashMap<TransactionId, List<PageId>>();
+        HTP = new HashMap<TransactionId, HashSet<PageId>>();
         wfGraph = new WFGraph();
     }
 
@@ -115,6 +115,7 @@ public class LockManagerImpl implements LockManager {
             throw new LockManagerException("This tid does not hold lock on this page!");
         }
         current.releaseLock(tid);
+        HTP.get(tid).remove(pid);
         this.notifyAll();
     }
 
@@ -123,7 +124,7 @@ public class LockManagerImpl implements LockManager {
         if (!HTP.containsKey(tid)){
             throw new LockManagerException("this Tid does not hold any pages!");
         }
-        return HTP.get(tid);
+        return new ArrayList<>(HTP.get(tid));
     }
 
     @Override
@@ -132,7 +133,7 @@ public class LockManagerImpl implements LockManager {
     }
 
     private synchronized void addPid(TransactionId tid, PageId pid){
-        List<PageId> newAdd = new LinkedList<PageId>();
+        HashSet<PageId> newAdd = new HashSet<PageId>();
         if (HTP.containsKey(tid)){
             newAdd= HTP.get(tid);
         }

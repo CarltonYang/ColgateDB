@@ -89,21 +89,29 @@ public class HeapFile implements DbFile {
      */
     private SlottedPage getFreePage(TransactionId tid) throws TransactionAbortedException{
         AccessManager accessManager= Database.getAccessManager();
+        boolean justAcquired;
 
         for (int i = 0; i < this.numPages; i++) {
             PageId pid = new SimplePageId(this.tableid, i);
+            justAcquired = !accessManager.holdsLock(tid, pid, Permissions.READ_ONLY);
             accessManager.acquireLock(tid, pid, Permissions.READ_ONLY);
             SlottedPage page = (SlottedPage) accessManager.pinPage(tid, pid,this.pageMaker);
             if (page.getNumEmptySlots() > 0) {
+                accessManager.acquireLock(tid, pid, Permissions.READ_WRITE);
                 return page;
             }
             accessManager.unpinPage(tid, page, false);
-            accessManager.releaseLock(tid, pid);
+            if (justAcquired){
+                accessManager.releaseLock(tid, pid);
+            }
         }
-        SimplePageId pid = new SimplePageId(tableid, numPages);
-        accessManager.allocatePage(pid);
-        this.numPages++;
-        SlottedPage page = (SlottedPage) accessManager.pinPage(tid, pid,this.pageMaker);
+        SimplePageId newpid = new SimplePageId(tableid, numPages);
+        synchronized (this) {
+            accessManager.allocatePage(newpid);
+            this.numPages++;
+        }
+        accessManager.acquireLock(tid, newpid, Permissions.READ_WRITE);
+        SlottedPage page = (SlottedPage) accessManager.pinPage(tid, newpid,this.pageMaker);
         return page;
     }
 
@@ -111,9 +119,10 @@ public class HeapFile implements DbFile {
     public void insertTuple(TransactionId tid, Tuple t) throws TransactionAbortedException {
         AccessManager accessManager= Database.getAccessManager();
         SlottedPage newPage= getFreePage(tid);
+        //accessManager.acquireLock(tid, newPage.getId(), Permissions.READ_WRITE);
         newPage.insertTuple(t);
         //PageId pid= newPage.getId();
-        accessManager.unpinPage(tid, newPage,true);//pinpage called inside getFreePage(), inserted a page -> dirty;
+        accessManager.unpinPage(tid,newPage,true);//pinpage called inside getFreePage(), inserted a page -> dirty;
     }
 
 
@@ -132,6 +141,7 @@ public class HeapFile implements DbFile {
         }
         else{
             PageId pid= t.getRecordId().getPageId();
+            Database.getAccessManager().acquireLock(tid, pid, Permissions.READ_WRITE);
             SlottedPage pagewithTuple= (SlottedPage) Database.getAccessManager().pinPage(tid, pid,this.pageMaker);
             pagewithTuple.deleteTuple(t);
             Database.getAccessManager().unpinPage(tid, pagewithTuple,true);//deleted a page -> dirty
@@ -171,6 +181,7 @@ public class HeapFile implements DbFile {
          */
         private Iterator<Tuple> getPageIterator(int currentPage) throws TransactionAbortedException, DbException {
             SimplePageId pid = new SimplePageId(tableid, currentPage);
+            Database.getAccessManager().acquireLock(tid, pid, Permissions.READ_ONLY);
             SlottedPage page = (SlottedPage) Database.getAccessManager().pinPage(tid, pid,pageMaker);
             return page.iterator();
         }

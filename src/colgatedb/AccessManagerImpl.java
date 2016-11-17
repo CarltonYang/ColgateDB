@@ -100,9 +100,7 @@ public class AccessManagerImpl implements AccessManager {
                 if (commit) {
                     if (bufferManager.isDirty(pid)){bufferManager.flushPage(pid);}
                     bufferManager.getPage(pid).setBeforeImage();
-                    //}
                 } else {
-
                         if (bufferManager.isDirty(pid)){
                             bufferManager.discardPage(pid);
                         } else {
@@ -110,10 +108,11 @@ public class AccessManagerImpl implements AccessManager {
                         }
                     }
                 }
-                releaseLock(tid, pid);
+            }
+            while(!lockManager.getPagesForTid(tid).isEmpty()){
+                releaseLock(tid,lockManager.getPagesForTid(tid).get(0));
             }
         }
-
     }
 
 

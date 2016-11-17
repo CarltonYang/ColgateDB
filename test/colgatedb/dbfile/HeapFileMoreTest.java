@@ -2,6 +2,7 @@ package colgatedb.dbfile;
 
 import colgatedb.*;
 import colgatedb.page.*;
+import colgatedb.transactions.Transaction;
 import colgatedb.transactions.TransactionAbortedException;
 import colgatedb.transactions.TransactionId;
 import colgatedb.tuple.RecordId;
@@ -107,11 +108,14 @@ public class HeapFileMoreTest {
 
     @Test
     public void testDeleteOnMultiplePages() throws IOException, TransactionAbortedException {
+        Transaction transaction = new Transaction();
+        transaction.start();
+        TransactionId tidtemp=transaction.getId();
         List<Tuple> tups = new LinkedList<Tuple>();
         HeapFile hf = initializeHeapFile(new int[]{3,3,3}, tups);
         tups.clear();
 
-        DbFileIterator hfIterator = hf.iterator(tid);
+        DbFileIterator hfIterator = hf.iterator(tidtemp);
         hfIterator.open();
         while (hfIterator.hasNext()) {
             Tuple t = hfIterator.next();
@@ -120,10 +124,10 @@ public class HeapFileMoreTest {
 
         Database.getBufferManager().evictDirty(true);
         for (Tuple t: tups) {
-            hf.deleteTuple(tid, t);
+            hf.deleteTuple(tidtemp, t);
         }
-
-        hfIterator = hf.iterator(tid);
+        transaction.commit();
+        hfIterator = hf.iterator(tidtemp);
         hfIterator.open();
         assertFalse(hfIterator.hasNext());
         hfIterator.close();

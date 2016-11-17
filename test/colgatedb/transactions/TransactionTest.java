@@ -67,6 +67,7 @@ public class TransactionTest {
 
         am.acquireLock(tid2, p0, Permissions.READ_WRITE);
         am.acquireLock(tid2, p0, Permissions.READ_WRITE);
+        //am.acquireLock(tid2, p0, Permissions.READ_WRITE);
     }
 
     /**
