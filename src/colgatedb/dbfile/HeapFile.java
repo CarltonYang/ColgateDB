@@ -48,6 +48,7 @@ public class HeapFile implements DbFile {
     private boolean nextSamePage;
     private boolean work;
     private Tuple current;
+    //private Iterator<Tuple> currentIterator;
     /**
      * Creates a heap file.
      * @param td the schema for records stored in this heapfile
@@ -64,6 +65,7 @@ public class HeapFile implements DbFile {
         this.current=null;
         this.nextSamePage=false;
         this.work=true;
+        //this.currentIterator=null;
     }
 
     /**
@@ -87,7 +89,7 @@ public class HeapFile implements DbFile {
      * this helper function either finds a page with a free slot or allocate a new
      * page and returns it
      */
-    private SlottedPage getFreePage(TransactionId tid) throws TransactionAbortedException{
+    private PageId getFreePage(TransactionId tid) throws TransactionAbortedException{
         AccessManager accessManager= Database.getAccessManager();
         boolean justAcquired;
 
@@ -97,8 +99,8 @@ public class HeapFile implements DbFile {
             accessManager.acquireLock(tid, pid, Permissions.READ_ONLY);
             SlottedPage page = (SlottedPage) accessManager.pinPage(tid, pid,this.pageMaker);
             if (page.getNumEmptySlots() > 0) {
-                accessManager.acquireLock(tid, pid, Permissions.READ_WRITE);
-                return page;
+                accessManager.unpinPage(tid,page,false);
+                return pid;
             }
             accessManager.unpinPage(tid, page, false);
             if (justAcquired){
@@ -110,18 +112,16 @@ public class HeapFile implements DbFile {
             accessManager.allocatePage(newpid);
             this.numPages++;
         }
-        accessManager.acquireLock(tid, newpid, Permissions.READ_WRITE);
-        SlottedPage page = (SlottedPage) accessManager.pinPage(tid, newpid,this.pageMaker);
-        return page;
+        return newpid;
     }
 
     @Override
     public void insertTuple(TransactionId tid, Tuple t) throws TransactionAbortedException {
         AccessManager accessManager= Database.getAccessManager();
-        SlottedPage newPage= getFreePage(tid);
-        //accessManager.acquireLock(tid, newPage.getId(), Permissions.READ_WRITE);
+        PageId newPageId= getFreePage(tid);
+        accessManager.acquireLock(tid, newPageId, Permissions.READ_WRITE);
+        SlottedPage newPage = (SlottedPage) accessManager.pinPage(tid, newPageId, this.pageMaker);
         newPage.insertTuple(t);
-        //PageId pid= newPage.getId();
         accessManager.unpinPage(tid,newPage,true);//pinpage called inside getFreePage(), inserted a page -> dirty;
     }
 
@@ -183,11 +183,14 @@ public class HeapFile implements DbFile {
             SimplePageId pid = new SimplePageId(tableid, currentPage);
             Database.getAccessManager().acquireLock(tid, pid, Permissions.READ_ONLY);
             SlottedPage page = (SlottedPage) Database.getAccessManager().pinPage(tid, pid,pageMaker);
-            return page.iterator();
+            Iterator<Tuple> currentIterator=  page.iterator();
+            Database.getAccessManager().unpinPage(tid, page, false);
+            return currentIterator;
         }
 
         /*
          * this helper function unpins the page called earlier
+         * new edit: currently unused anywhere
          */
         private void unpinPageUsedbyIterator(int pageNum){
             SimplePageId pid = new SimplePageId(tableid, pageNum);
@@ -197,7 +200,6 @@ public class HeapFile implements DbFile {
 
         @Override
         public boolean hasNext() throws TransactionAbortedException {
-            //Iterator<Tuple> pageIteratorCurrent= pageIterator;
             if (pageIterator == null|| !isOpened) { //return false if not open
                 return false;
             } else if (!work){
@@ -212,7 +214,6 @@ public class HeapFile implements DbFile {
                 return false;
             } else { //try to find next in the next page
                 int pageNum = currentPage;
-                unpinPageUsedbyIterator(currentPage);
                 pageNum++;
                 while (pageNum < numPages()) {
                     pageIterator = getPageIterator(pageNum);
@@ -222,11 +223,9 @@ public class HeapFile implements DbFile {
                         currentPage=pageNum;
                         return true;
                     }
-                    unpinPageUsedbyIterator(pageNum);
                     pageNum++;
                 }
                 currentPage=numPages()-1;
-                //pageIterator = getPageIterator(currentPage);
                 return false;
             }
         }
@@ -244,7 +243,6 @@ public class HeapFile implements DbFile {
         @Override
         public void rewind() throws TransactionAbortedException {
             close();
-            unpinPageUsedbyIterator(currentPage);
             open();
         }
 
@@ -252,7 +250,6 @@ public class HeapFile implements DbFile {
         public void close() {
             isOpened = false;
             pageIterator = null;
-            //unpinPageUsedbyIterator(currentPage);
         }
     }
 

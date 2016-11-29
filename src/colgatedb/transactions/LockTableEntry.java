@@ -61,6 +61,8 @@ public class LockTableEntry {
             return true;
         } else if (perm == Permissions.READ_WRITE && isNext(temp) && exclusiveAvailable(tid)) {
             return true;
+        } else if (alreadyLocked(tid)){
+            return true;
         } else if (isupGrade(tid, perm)) {
             removeRequest(tid, perm);
             LockRequest cutline = new LockRequest(tid, perm);
@@ -69,6 +71,10 @@ public class LockTableEntry {
         } else{
             return false;
         }
+    }
+
+    private synchronized boolean alreadyLocked(TransactionId tid){
+        return (lockType == Permissions.READ_WRITE&& lockHolders.contains(tid)&&lockHolders.size()==1);
     }
 
     /*
