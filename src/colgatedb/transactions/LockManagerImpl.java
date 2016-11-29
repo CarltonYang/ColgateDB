@@ -49,7 +49,7 @@ public class LockManagerImpl implements LockManager {
                 wfGraph.addTid(tid, new HashSet<TransactionId>());
             }
         }
-    }
+    }//
 
     @Override
     public void acquireLock(TransactionId tid, PageId pid, Permissions perm) throws TransactionAbortedException {
