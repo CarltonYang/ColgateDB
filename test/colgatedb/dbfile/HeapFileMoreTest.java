@@ -39,6 +39,9 @@ public class HeapFileMoreTest {
 
     private final String tableName = "sometable";
     private final TransactionId tid = new TransactionId();
+    static final int pageSize = 64;
+    static final TupleDesc td = TestUtility.getTupleDesc(2);
+    static final PageMaker pm = new SlottedPageMaker(td, pageSize);
 
     @Before
     public void setUp() {
@@ -158,7 +161,7 @@ public class HeapFileMoreTest {
      * @param iterator
      * @throws TransactionAbortedException
      */
-    private void assertIteratorsMatch(List<Tuple> expectedTuples, DbFileIterator iterator) throws TransactionAbortedException {
+     static void assertIteratorsMatch(List<Tuple> expectedTuples, DbFileIterator iterator) throws TransactionAbortedException {
         Iterator<Tuple> tupIter = expectedTuples.iterator();
         int tupleNo = 0;
         while (tupIter.hasNext()) {
@@ -171,7 +174,7 @@ public class HeapFileMoreTest {
         assertFalse(iterator.hasNext());
     }
 
-    private HeapFile initializeHeapFile(List<Tuple> tups) throws IOException {
+    static HeapFile initializeHeapFile(List<Tuple> tups) throws IOException {
         return initializeHeapFile(new int[]{2,2,2,2}, tups);
     }
 
@@ -182,13 +185,9 @@ public class HeapFileMoreTest {
      * @return a heapfile
      * @throws IOException
      */
-    private HeapFile initializeHeapFile(int[] tupsPerPage, List<Tuple> tups) throws IOException {
-        TupleDesc td = TestUtility.getTupleDesc(2);
-        int pageSize = 64;
+    static HeapFile initializeHeapFile(int[] tupsPerPage, List<Tuple> tups) throws IOException {
         Database.setPageSize(pageSize);
         Database.setBufferPoolSize(1);  // make sure unused pages are being unpinned!
-
-        PageMaker pm = new SlottedPageMaker(td, pageSize);
 
         DiskManagerImpl tempDM = new DiskManagerImpl(pageSize);
 
