@@ -74,7 +74,7 @@ public class LockManagerImpl implements LockManager {
                         wfGraph.addTid(tid, current.getLockHolders());
                         //delete itself from the dependency group, this may happen from upgrading the lock
                         wfGraph.removeDependency(tid);
-                        if (wfGraph.hasCircle(tid)){
+                        if (wfGraph.hasCyrcle(tid)){
                             wfGraph.print();
                             current.removeRequest(tid, perm);
                             wfGraph.removeTid(tid);
@@ -195,7 +195,7 @@ public class LockManagerImpl implements LockManager {
         }*/
 
         // DFS to detect circle
-        public synchronized boolean hasCircle(TransactionId tid2){
+        public synchronized boolean hasCyrcle(TransactionId tid2){
             HashSet<TransactionId> visited = new HashSet<TransactionId>();
             LinkedList<TransactionId> queue = new LinkedList<TransactionId>();
             for(TransactionId tid : dependencyMap.keySet()) {

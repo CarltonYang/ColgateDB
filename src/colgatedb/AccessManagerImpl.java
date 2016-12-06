@@ -94,17 +94,20 @@ public class AccessManagerImpl implements AccessManager {
             return;
         } else {
             Iterator<PageId> pageIdList = lockManager.getPagesForTid(tid).iterator();
+            //Iterator<PageId> pageIdList = this.txnRecord.get(tid).iterator();
             while (pageIdList.hasNext()) {
                 PageId pid = pageIdList.next();
                 if (bufferManager.inBufferPool(pid)) {
                 if (commit) {
-                    if (bufferManager.isDirty(pid)){bufferManager.flushPage(pid);}
+                    if (bufferManager.isDirty(pid) && force){bufferManager.flushPage(pid);}
                     bufferManager.getPage(pid).setBeforeImage();
                 } else {
-                        if (bufferManager.isDirty(pid)){
-                            bufferManager.discardPage(pid);
-                        } else {
-                            bufferManager.unpinPage(pid,false);
+                    if (bufferManager.isDirty(pid)) {
+                        bufferManager.discardPage(pid);
+                    } else {
+                        while (txnRecord.get(tid).contains(pid)) {
+                            unpinPage(tid, bufferManager.getPage(pid), false);
+                            }
                         }
                     }
                 }

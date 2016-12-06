@@ -108,6 +108,8 @@ public class HeapFile implements DbFile {
             }
         }
         SimplePageId newpid = new SimplePageId(tableid, numPages);
+        //PageId creation outside synchronized block
+        //because it needs to be accessed outside of the block and returned in the end
         synchronized (this) {
             accessManager.allocatePage(newpid);
             this.numPages++;
