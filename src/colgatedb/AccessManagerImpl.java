@@ -75,6 +75,9 @@ public class AccessManagerImpl implements AccessManager {
         synchronized (this.txnRecord) {
             txnRecord.get(tid).remove(page.getId());
         }
+        if (isDirty){
+            Database.getLogFile().logWrite(tid, page.getBeforeImage(), page);
+        }
         bufferManager.unpinPage(page.getId(),isDirty);
     }
 
@@ -98,16 +101,16 @@ public class AccessManagerImpl implements AccessManager {
             while (pageIdList.hasNext()) {
                 PageId pid = pageIdList.next();
                 if (bufferManager.inBufferPool(pid)) {
-                if (commit) {
-                    if (bufferManager.isDirty(pid) && force){bufferManager.flushPage(pid);}
-                    bufferManager.getPage(pid).setBeforeImage();
-                } else {
-                    if (bufferManager.isDirty(pid)) {
-                        bufferManager.discardPage(pid);
+                    if (commit) {
+                        Database.getLogFile().force();
+                        if (bufferManager.isDirty(pid) && force){bufferManager.flushPage(pid);}
+                        if (bufferManager.isDirty(pid)) {bufferManager.getPage(pid).setBeforeImage();}
                     } else {
+                        if (bufferManager.isDirty(pid)) {
+                            bufferManager.discardPage(pid);
+                        }
                         while (txnRecord.get(tid).contains(pid)) {
                             unpinPage(tid, bufferManager.getPage(pid), false);
-                            }
                         }
                     }
                 }
