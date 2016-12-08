@@ -4,6 +4,7 @@ import colgatedb.page.Page;
 import colgatedb.page.PageId;
 import colgatedb.page.PageMaker;
 
+import javax.xml.crypto.Data;
 import java.awt.*;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,6 +59,7 @@ public class BufferManagerImpl implements BufferManager {
             return getPage(pid);
         } else {
             if (frameMap.size()==numPages){
+                Database.getLogFile().force();
                 evictPage();
             }
             Page newPage = dm.readPage(pid, pageMaker);

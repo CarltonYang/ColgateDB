@@ -6,8 +6,10 @@ import colgatedb.DiskManager;
 import colgatedb.page.Page;
 import colgatedb.page.PageId;
 import colgatedb.page.SimplePageId;
+import colgatedb.transactions.LockManager;
 import colgatedb.transactions.TransactionId;
 import com.sun.xml.internal.ws.policy.privateutil.PolicyUtils;
+import sun.awt.image.ImageWatched;
 
 import javax.xml.crypto.Data;
 import java.io.IOException;
@@ -32,7 +34,7 @@ import java.util.Set;
  * grateful for Sam's permission to use and adapt his materials.
  */
 public class LogFileRecovery {
-
+    HashSet<Long> losers = new HashSet<Long>();
     private final RandomAccessFile readOnlyLog;
 
     /**
@@ -117,10 +119,8 @@ public class LogFileRecovery {
      * @throws java.io.IOException if tidToRollback has already committed
      */
     public void rollback(TransactionId tidToRollback) throws IOException {
-         // this will be implemented in a later lab
-        LinkedList<Page> backwardQueue = new LinkedList<Page>();
+        LinkedList<Long> backwardQueue = new LinkedList<Long>();
         readOnlyLog.seek(0);
-        long currentOffset = readOnlyLog.getFilePointer();
         readOnlyLog.readLong();
         while (readOnlyLog.getFilePointer()<readOnlyLog.length()){
             int type = readOnlyLog.readInt();
@@ -137,10 +137,11 @@ public class LogFileRecovery {
                     }
                     break;
                 case LogType.UPDATE_RECORD:
-                    Page beforeImg = LogFileImpl.readPageData(readOnlyLog);
+                    Long currentOffSet= readOnlyLog.getFilePointer()-12; // type(4) + tid(8)
                     if (tidToRollback.getId()==tid){
-                        backwardQueue.add(0,beforeImg);
+                        backwardQueue.add(0,currentOffSet); //use offset (instead of page) since it is much smaller
                     }
+                    LogFileImpl.readPageData(readOnlyLog);  // before image
                     LogFileImpl.readPageData(readOnlyLog);  // after image
                     break;
                 case LogType.CLR_RECORD:
@@ -156,25 +157,25 @@ public class LogFileRecovery {
                     break;
             }
             readOnlyLog.readLong();
-            //System.out.println(readOnlyLog.getFilePointer());
-            print();
         }
 
-        for (Page beforeImg : backwardQueue){
+        // actually do work in reverse order
+        for (Long offSet : backwardQueue){
+            readOnlyLog.seek(offSet+12); // start of offset + 4 (type) + 8 (tid)
+            Page beforeImg = LogFileImpl.readPageData(readOnlyLog);
             reset(tidToRollback,beforeImg);
         }
     }
 
+    /*
+     *  helper function to rollback
+     */
     private void reset(TransactionId tidToRollback, Page beforeImg) throws IOException{
         Database.getDiskManager().writePage(beforeImg);
         Database.getBufferManager().discardPage(beforeImg.getId());
         Database.getLogFile().logCLR(tidToRollback, beforeImg);
     }
 
-    private void rewrite(Page Img) throws IOException{
-        Database.getDiskManager().writePage(Img);
-        Database.getBufferManager().discardPage(Img.getId());
-    }
     /**
      * Recover the database system by ensuring that the updates of
      * committed transactions are installed and that the
@@ -184,28 +185,29 @@ public class LogFileRecovery {
      * the BufferPool are locked.
      */
     public void recover() throws IOException {
-         // this will be implemented in a later lab
+        long lastCheckPt= findLastCheckPoint();
+        redo(lastCheckPt);
+        LinkedList<Long> backwardQueue = undo_preprocess();
+        for (Long offSet : backwardQueue){
+            undo(offSet);
+        }
+        losers.clear();
+    }
 
-        HashSet<Long> losers = new HashSet<Long>();
-
+    /*
+     *  iterate through the log to find last check point
+     *  add all transactions stored corresponding to a checkpoint into a loser set
+     */
+    private long findLastCheckPoint() throws IOException{
         long lastCheckPt= 8;
         readOnlyLog.seek(0);
         readOnlyLog.readLong();
         while (readOnlyLog.getFilePointer()<readOnlyLog.length()){
             int type = readOnlyLog.readInt();
-            long tid = readOnlyLog.readLong();
+            readOnlyLog.readLong();
             switch (type) {
-                case LogType.BEGIN_RECORD:
-                    losers.add(tid);
-                    break;
-                case LogType.ABORT_RECORD:
-                    losers.remove(tid);
-                    break;
-                case LogType.COMMIT_RECORD:
-                    losers.remove(tid);
-                    break;
                 case LogType.UPDATE_RECORD:
-                    Page beforeImg = LogFileImpl.readPageData(readOnlyLog);
+                    LogFileImpl.readPageData(readOnlyLog);
                     LogFileImpl.readPageData(readOnlyLog);  // after image
                     break;
                 case LogType.CLR_RECORD:
@@ -226,10 +228,14 @@ public class LogFileRecovery {
             }
             readOnlyLog.readLong();
         }
+        return lastCheckPt;
+    }
 
-
-
-
+    /*
+     *  helper function to execute redo part of recovery protocol
+     *  refer to redo part of redo-undo protocol
+     */
+    private void redo(Long lastCheckPt) throws IOException{
         readOnlyLog.seek(lastCheckPt);
         while (readOnlyLog.getFilePointer()<readOnlyLog.length()){
             int type = readOnlyLog.readInt();
@@ -245,14 +251,13 @@ public class LogFileRecovery {
                     losers.remove(tid);
                     break;
                 case LogType.UPDATE_RECORD:
-                    Page beforeImg = LogFileImpl.readPageData(readOnlyLog);
+                    LogFileImpl.readPageData(readOnlyLog);
                     Page afterImg = LogFileImpl.readPageData(readOnlyLog);  // after image
-                    rewrite(afterImg);
+                    Database.getDiskManager().writePage(afterImg);
                     break;
                 case LogType.CLR_RECORD:
                     afterImg = LogFileImpl.readPageData(readOnlyLog);  // after image
                     Database.getDiskManager().writePage(afterImg);
-                    //Database.getBufferManager().flushPage(afterImg.getId());
                     break;
                 case LogType.CHECKPOINT_RECORD:
                     int count = readOnlyLog.readInt();
@@ -265,7 +270,14 @@ public class LogFileRecovery {
             }
             readOnlyLog.readLong();
         }
+    }
 
+    /*
+     *  helper function that goes through the log from begin to end
+     *  and put offset into backwardQueue if it is begin or update (begin to end order)
+     *  they will be executed in reverse order next step
+     */
+    private LinkedList<Long> undo_preprocess() throws IOException{
         LinkedList<Long> backwardQueue= new LinkedList<Long>();
         readOnlyLog.seek(0);
         readOnlyLog.readLong();
@@ -277,7 +289,6 @@ public class LogFileRecovery {
                     if (losers.contains(tid)) {
                         Long currentOffSet= readOnlyLog.getFilePointer()-12;
                         backwardQueue.add(0,currentOffSet);
-                        //typeMap.put(tid, LogType.BEGIN_RECORD);
                     }
                     break;
                 case LogType.UPDATE_RECORD:
@@ -285,7 +296,7 @@ public class LogFileRecovery {
                         Long currentOffSet= readOnlyLog.getFilePointer()-12;
                         backwardQueue.add(0,currentOffSet);
                     }
-                    Page beforeImg = LogFileImpl.readPageData(readOnlyLog);
+                    LogFileImpl.readPageData(readOnlyLog);
                     LogFileImpl.readPageData(readOnlyLog);  // after image
                     break;
                 case LogType.CLR_RECORD:
@@ -302,40 +313,27 @@ public class LogFileRecovery {
             }
             readOnlyLog.readLong();
         }
-
-        for (Long Offset : backwardQueue){
-                readOnlyLog.seek(Offset);
-                int type = readOnlyLog.readInt();
-                long tid = readOnlyLog.readLong();
-                switch (type){
-                    case LogType.BEGIN_RECORD:
-                        Database.getLogFile().logAbort(tid);
-                        break;
-                    case LogType.UPDATE_RECORD:
-                        Page beforeImg = LogFileImpl.readPageData(readOnlyLog);
-                        Database.getDiskManager().writePage(beforeImg);
-                        Database.getLogFile().logCLR(tid, beforeImg);
-                        LogFileImpl.readPageData(readOnlyLog);  // after image
-                        break;
-                    case LogType.CLR_RECORD:
-                        LogFileImpl.readPageData(readOnlyLog);  // after image
-                        break;
-                    case LogType.CHECKPOINT_RECORD:
-                        int count = readOnlyLog.readInt();
-                        for (int i = 0; i < count; i++) {
-                            readOnlyLog.readLong();
-                        }
-                        break;
-                    default:
-                        break;
-                }
-        }
+        return backwardQueue;
     }
 
-    private long findCheckPt() throws IOException{
-        long lastCheckPt= 0;
-
-
-        return lastCheckPt;
+    /*
+     *  helper function that
+     *  if update
+     *      actually undo each update and write CLR
+     *  if begin
+     *      write ABORT
+     */
+    private void undo(Long offSet) throws IOException{
+        readOnlyLog.seek(offSet);
+        int type = readOnlyLog.readInt();
+        long tid = readOnlyLog.readLong();
+        if (type == LogType.BEGIN_RECORD) {
+            Database.getLogFile().logAbort(tid);
+        } else if (type == LogType.UPDATE_RECORD) {
+            Page beforeImg = LogFileImpl.readPageData(readOnlyLog);
+            Database.getDiskManager().writePage(beforeImg);
+            Database.getLogFile().logCLR(tid, beforeImg);
+            LogFileImpl.readPageData(readOnlyLog);  // after image
+        }
     }
 }

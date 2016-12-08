@@ -37,7 +37,7 @@ public class AccessManagerImpl implements AccessManager {
         lockManager= new LockManagerImpl();
         txnRecord= new HashMap<TransactionId, List<PageId>>();
         bufferManager=bm;
-        bm.evictDirty(false);
+        bm.evictDirty(true);
     }
 
     @Override
@@ -97,7 +97,6 @@ public class AccessManagerImpl implements AccessManager {
             return;
         } else {
             Iterator<PageId> pageIdList = lockManager.getPagesForTid(tid).iterator();
-            //Iterator<PageId> pageIdList = this.txnRecord.get(tid).iterator();
             while (pageIdList.hasNext()) {
                 PageId pid = pageIdList.next();
                 if (bufferManager.inBufferPool(pid)) {
